@@ -635,166 +635,57 @@ def _func_LimparDicionario():
 
 @app.route('/download/<file_id>')
 def _func_DownloadEpub(file_id):
-    var_strCaminhoArquivoAtual = os.path.join(EPUB_PASTA, f"{file_id}_content.json")
-    
-    if not os.path.exists(var_strCaminhoArquivoAtual):
-        flash('Arquivo não encontrado')
-        return redirect(url_for('index'))
-    
-    with open(var_strCaminhoArquivoAtual, 'r', encoding='utf-8') as var_objArquivoLeitura:
-        var_dicConteudo = json.load(var_objArquivoLeitura)
-    
-    # Verificar se já existe tradução
-    var_boolTemTraducao = any(chapter.get('translated_content') for chapter in var_dicConteudo['chapters'])
-    
-    if var_boolTemTraducao:
-        # Usar traduções existentes
-        var_listCapitulosTraduzidos = []
-        for var_dicCapitulo in var_dicConteudo['chapters']:
-            var_dicCapituloTraduzido = {
-                'id': var_dicCapitulo['id'],
-                'title': var_dicCapitulo['title'],
-                'content': var_dicCapitulo.get('translated_content', var_dicCapitulo['content']),
-                'original_content': var_dicCapitulo.get('original_content', var_dicCapitulo['content'])
-            }
-            var_listCapitulosTraduzidos.append(var_dicCapituloTraduzido)
-    else:
-        # Traduzir todos os capítulos usando o dicionário personalizado
-        var_dicDicionario = _func_CarregarDicionario()
-        var_listCapitulosTraduzidos = []
-        for var_intIndice, var_dicCapitulo in enumerate(var_dicConteudo['chapters']):
-            # Aplicar dicionário primeiro
-            var_strTextoComDicionario = _func_AplicarDicionario(var_dicCapitulo['content'], var_dicDicionario)
+    """Download do EPUB traduzido"""
+    try:
+        var_strCaminhoArquivo = os.path.join(EPUB_PASTA, f'{file_id}_content.json')
+        if not os.path.exists(var_strCaminhoArquivo):
+            return jsonify({'error': 'Arquivo não encontrado'}), 404
+        
+        # Carregar dados do arquivo
+        with open(var_strCaminhoArquivo, 'r', encoding='utf-8') as var_objArquivo:
+            var_dicDados = json.load(var_objArquivo)
+        
+        # Verificar se há traduções
+        var_boolTemTraducao = any(var_dicCapitulo.get('translated_content') for var_dicCapitulo in var_dicDados.get('chapters', []))
+        
+        if not var_boolTemTraducao:
+            return jsonify({'error': 'Nenhuma tradução encontrada para download'}), 400
+        
+        # Criar arquivo temporário para download
+        var_strArquivoTemporario = f'temp_{file_id}.txt'
+        with open(var_strArquivoTemporario, 'w', encoding='utf-8') as var_objArquivo:
+            var_objArquivo.write(f"Título: {var_dicDados.get('title', 'Sem título')}\n")
+            var_objArquivo.write("=" * 50 + "\n\n")
             
-            # Traduzir o texto
-            var_strTextoTraduzido = _func_TraduzirTexto(var_strTextoComDicionario, 'auto', 'pt')
-            
-            # Criar capítulo traduzido
-            var_dicCapituloTraduzido = {
-                'id': var_dicCapitulo['id'],
-                'title': var_dicCapitulo['title'],
-                'content': var_strTextoTraduzido,
-                'original_content': var_dicCapitulo['content']
-            }
-            var_listCapitulosTraduzidos.append(var_dicCapituloTraduzido)
+            for var_dicCapitulo in var_dicDados.get('chapters', []):
+                var_objArquivo.write(f"{var_dicCapitulo.get('title', 'Capítulo')}\n")
+                var_objArquivo.write("-" * 30 + "\n")
+                var_objArquivo.write(var_dicCapitulo.get('translated_content', var_dicCapitulo.get('content', '')))
+                var_objArquivo.write("\n\n")
+        
+        return send_file(var_strArquivoTemporario, as_attachment=True, download_name=f"{var_dicDados.get('title', 'epub')}_traduzido.txt")
     
-    # Criar um EPUB com o conteúdo traduzido
-    var_objArquivoTemporario = tempfile.NamedTemporaryFile(delete=False, suffix='.epub')
-    var_objArquivoTemporario.close()
+    except Exception as var_objErro:
+        print(f"Erro no download: {var_objErro}")
+        return jsonify({'error': 'Erro interno do servidor'}), 500
+
+@app.route('/changelog')
+def _func_PaginaChangelog():
+    """Página de changelog com histórico de alterações"""
+    try:
+        # Ler o arquivo CHANGELOG.md
+        var_strCaminhoChangelog = 'CHANGELOG.md'
+        if os.path.exists(var_strCaminhoChangelog):
+            with open(var_strCaminhoChangelog, 'r', encoding='utf-8') as var_objArquivo:
+                var_strConteudo = var_objArquivo.read()
+        else:
+            var_strConteudo = "# Changelog\n\nNenhum changelog disponível."
+        
+        return render_template('changelog.html', changelog_content=var_strConteudo)
     
-    with zipfile.ZipFile(var_objArquivoTemporario.name, 'w') as var_objEpub:
-        # Adicionar arquivos básicos do EPUB
-        var_objEpub.writestr('META-INF/container.xml', '''<?xml version="1.0" encoding="UTF-8"?>
-<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-    <rootfiles>
-        <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
-    </rootfiles>
-</container>''')
-        
-        # Criar content.opf
-        var_strContentOPF = f'''<?xml version="1.0" encoding="UTF-8"?>
-<package version="3.0" xmlns="http://www.idpf.org/2007/opf">
-    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-        <dc:title>{var_dicConteudo.get('title', 'EPUB Traduzido')} (Traduzido)</dc:title>
-        <dc:language>pt</dc:language>
-        <dc:creator>EPUB Translator</dc:creator>
-        <dc:description>EPUB traduzido automaticamente com dicionário personalizado</dc:description>
-    </metadata>
-    <manifest>
-        <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
-        <item id="css" href="style.css" media-type="text/css"/>
-'''
-        
-        for var_intIndice, var_dicCapitulo in enumerate(var_listCapitulosTraduzidos):
-            var_strContentOPF += f'        <item id="chapter{var_intIndice}" href="chapter{var_intIndice}.html" media-type="application/xhtml+xml"/>\n'
-        
-        var_strContentOPF += '''    </manifest>
-    <spine toc="ncx">
-'''
-        
-        for var_intIndice in range(len(var_listCapitulosTraduzidos)):
-            var_strContentOPF += f'        <itemref idref="chapter{var_intIndice}"/>\n'
-        
-        var_strContentOPF += '''    </spine>
-</package>'''
-        
-        var_objEpub.writestr('OEBPS/content.opf', var_strContentOPF)
-        
-        # Adicionar CSS
-        var_objEpub.writestr('OEBPS/style.css', '''body { 
-    font-family: "Times New Roman", serif; 
-    margin: 2em; 
-    line-height: 1.6; 
-    text-align: justify;
-}
-h1, h2, h3 { 
-    color: #333; 
-    text-align: center;
-    margin-top: 2em;
-    margin-bottom: 1em;
-}
-p { 
-    text-indent: 2em;
-    margin-bottom: 1em;
-}
-.content {
-    max-width: 800px;
-    margin: 0 auto;
-}''')
-        
-        # Adicionar capítulos traduzidos
-        for var_intIndice, var_dicCapitulo in enumerate(var_listCapitulosTraduzidos):
-            # Formatar o conteúdo traduzido para HTML
-            var_strConteudoFormatado = var_dicCapitulo['content'].replace('\n\n', '</p><p>').replace('\n', ' ')
-            if not var_strConteudoFormatado.startswith('<p>'):
-                var_strConteudoFormatado = f'<p>{var_strConteudoFormatado}</p>'
-            
-            var_strHTMLCapitulo = f'''<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-    <title>{var_dicCapitulo['title']}</title>
-    <link rel="stylesheet" type="text/css" href="style.css"/>
-</head>
-<body>
-    <div class="content">
-        <h1>{var_dicCapitulo['title']}</h1>
-        {var_strConteudoFormatado}
-    </div>
-</body>
-</html>'''
-            var_objEpub.writestr(f'OEBPS/chapter{var_intIndice}.html', var_strHTMLCapitulo)
-        
-        # Adicionar arquivo de navegação (toc.ncx)
-        var_strTocNCX = f'''<?xml version="1.0" encoding="UTF-8"?>
-<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
-    <head>
-        <meta name="dtb:uid" content="epub-translator-{file_id}"/>
-        <meta name="dtb:depth" content="1"/>
-        <meta name="dtb:totalPageCount" content="0"/>
-        <meta name="dtb:maxPageNumber" content="0"/>
-    </head>
-    <docTitle>
-        <text>{var_dicConteudo.get('title', 'EPUB Traduzido')}</text>
-    </docTitle>
-    <navMap>
-'''
-        
-        for var_intIndice, var_dicCapitulo in enumerate(var_listCapitulosTraduzidos):
-            var_strTocNCX += f'''        <navPoint id="chapter{var_intIndice}" playOrder="{var_intIndice+1}">
-            <navLabel>
-                <text>{var_dicCapitulo['title']}</text>
-            </navLabel>
-            <content src="chapter{var_intIndice}.html"/>
-        </navPoint>
-'''
-        
-        var_strTocNCX += '''    </navMap>
-</ncx>'''
-        
-        var_objEpub.writestr('OEBPS/toc.ncx', var_strTocNCX)
-    
-    return send_file(var_objArquivoTemporario.name, as_attachment=True, download_name=f"traduzido_{var_dicConteudo.get('title', 'epub')}.epub")
+    except Exception as var_objErro:
+        print(f"Erro ao carregar changelog: {var_objErro}")
+        return render_template('changelog.html', changelog_content="# Erro\n\nErro ao carregar o changelog.")
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    app.run(debug=True, host='0.0.0.0', port=5000) 
