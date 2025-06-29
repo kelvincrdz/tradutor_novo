@@ -86,6 +86,9 @@ def internal_error(error):
 def too_large(error):
     return {'error': 'Arquivo muito grande. Tamanho máximo: 50MB'}, 413
 
+# Expor a aplicação para o PythonAnywhere
+application = app
+
 if __name__ == '__main__':
     # Para desenvolvimento local
     app.run(
