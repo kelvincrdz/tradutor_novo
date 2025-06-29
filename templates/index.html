@@ -166,6 +166,52 @@
             </a>
         </div>
     </section>
+
+    <!-- Changelog Section -->
+    <section class="mui-section">
+        <div class="mui-card">
+            <div class="mui-card__header">
+                <h2 class="mui-card__title">
+                    <span class="mui-icon mui-icon--history"></span>
+                    Histórico de Alterações
+                </h2>
+                <p class="mui-card__subtitle">
+                    Acompanhe as últimas melhorias e novas funcionalidades do sistema
+                </p>
+            </div>
+            <div class="mui-card__content">
+                <div class="mui-changelog-preview">
+                    <p class="mui-changelog-text">
+                        Fique por dentro de todas as atualizações, correções de bugs e novas funcionalidades implementadas no sistema de tradução de EPUBs.
+                    </p>
+                    <div class="mui-changelog-features">
+                        <div class="mui-changelog-feature">
+                            <span class="mui-icon mui-icon--translate"></span>
+                            <span>Tradução simultânea de capítulos</span>
+                        </div>
+                        <div class="mui-changelog-feature">
+                            <span class="mui-icon mui-icon--search"></span>
+                            <span>Dicionário personalizado</span>
+                        </div>
+                        <div class="mui-changelog-feature">
+                            <span class="mui-icon mui-icon--dark-mode"></span>
+                            <span>Modo escuro</span>
+                        </div>
+                        <div class="mui-changelog-feature">
+                            <span class="mui-icon mui-icon--edit"></span>
+                            <span>Edição manual de traduções</span>
+                        </div>
+                    </div>
+                    <div class="mui-changelog-actions">
+                        <a href="{{ url_for('_func_PaginaChangelog') }}" class="mui-button mui-button--outlined mui-button--primary">
+                            <span class="mui-icon mui-icon--history"></span>
+                            Ver Changelog Completo
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 </div>
 
 <!-- Duplicate EPUB Modal -->
