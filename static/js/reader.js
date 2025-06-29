@@ -278,11 +278,13 @@ function _func_TraduzirTodosCapitulos() {
     const var_objPorcentagemProgresso = document.getElementById('progressPercentage');
     const var_objBotaoDownload = document.getElementById('downloadTranslatedBtn');
     const var_objBotaoCancelar = document.getElementById('cancelProgress');
+    const var_objSimultaneo = document.getElementById('progressSimultaneous');
+    const var_objBotaoCancelarTraducao = document.getElementById('cancelProgressBtn');
     
     // Verificar se todos os elementos do modal existem
     if (!var_objModalProgresso || !var_objTextoProgresso || !var_objDetalhesProgresso || 
         !var_objPreenchimentoProgresso || !var_objPorcentagemProgresso || 
-        !var_objBotaoDownload || !var_objBotaoCancelar) {
+        !var_objBotaoDownload || !var_objBotaoCancelar || !var_objSimultaneo || !var_objBotaoCancelarTraducao) {
         console.error('Elementos do modal de progresso não foram encontrados');
         _func_MostrarNotificacao('Erro ao abrir modal de progresso', 'error');
         return;
@@ -294,7 +296,7 @@ function _func_TraduzirTodosCapitulos() {
     if (var_boolJaTraduzido) {
         // Se já foi traduzido, perguntar se quer traduzir novamente
         if (confirm('Este EPUB já foi traduzido. Deseja traduzir novamente?')) {
-            _func_IniciarTraducao();
+            _func_IniciarTraducaoSimultanea();
         } else {
             // Se não quiser traduzir novamente, apenas atualizar o conteúdo atual
             _func_AtualizarConteudoAposTraducao();
@@ -302,13 +304,13 @@ function _func_TraduzirTodosCapitulos() {
         return;
     }
     
-    _func_IniciarTraducao();
+    _func_IniciarTraducaoSimultanea();
     
-    function _func_IniciarTraducao() {
+    function _func_IniciarTraducaoSimultanea() {
         // Verificar se todos os elementos do modal existem novamente
         if (!var_objModalProgresso || !var_objTextoProgresso || !var_objDetalhesProgresso || 
             !var_objPreenchimentoProgresso || !var_objPorcentagemProgresso || 
-            !var_objBotaoDownload || !var_objBotaoCancelar) {
+            !var_objBotaoDownload || !var_objBotaoCancelar || !var_objSimultaneo || !var_objBotaoCancelarTraducao) {
             console.error('Elementos do modal de progresso não foram encontrados na inicialização');
             _func_MostrarNotificacao('Erro ao inicializar tradução', 'error');
             return;
@@ -317,9 +319,20 @@ function _func_TraduzirTodosCapitulos() {
         // Mostrar modal de progresso
         var_objModalProgresso.classList.add('mui-modal--open');
         
+        // Mostrar botão de cancelar tradução
+        var_objBotaoCancelarTraducao.style.display = 'inline-flex';
+        var_objBotaoDownload.style.display = 'none';
+        var_objBotaoCancelar.style.display = 'none';
+        
         // Configurar progresso inicial
         const var_intTotalCapitulos = var_listCapitulos.length;
-        let var_intCapituloAtual = 0;
+        let var_intCapitulosCompletados = 0;
+        let var_intCapitulosEmAndamento = 0;
+        const var_intMaximoSimultaneo = 3; // Máximo de 3 traduções simultâneas
+        let var_boolTraducaoCancelada = false;
+        
+        // Array para controlar quais capítulos estão sendo traduzidos
+        const var_listCapitulosEmAndamento = new Set();
         
         function _func_AtualizarProgresso() {
             if (!var_objPreenchimentoProgresso || !var_objPorcentagemProgresso || !var_objDetalhesProgresso) {
@@ -327,42 +340,63 @@ function _func_TraduzirTodosCapitulos() {
                 return;
             }
             
-            const var_intPorcentagem = Math.round((var_intCapituloAtual / var_intTotalCapitulos) * 100);
+            const var_intPorcentagem = Math.round((var_intCapitulosCompletados / var_intTotalCapitulos) * 100);
             var_objPreenchimentoProgresso.style.width = `${var_intPorcentagem}%`;
             var_objPorcentagemProgresso.textContent = `${var_intPorcentagem}%`;
-            var_objDetalhesProgresso.textContent = `Capítulo ${var_intCapituloAtual + 1} de ${var_intTotalCapitulos}`;
+            
+            if (var_intCapitulosEmAndamento > 0) {
+                var_objDetalhesProgresso.textContent = `${var_intCapitulosCompletados} completados, ${var_intCapitulosEmAndamento} em andamento de ${var_intTotalCapitulos}`;
+                // Mostrar indicador de tradução simultânea
+                if (var_objSimultaneo) {
+                    var_objSimultaneo.style.display = 'flex';
+                }
+            } else {
+                var_objDetalhesProgresso.textContent = `${var_intCapitulosCompletados} de ${var_intTotalCapitulos} capítulos traduzidos`;
+                // Ocultar indicador de tradução simultânea
+                if (var_objSimultaneo) {
+                    var_objSimultaneo.style.display = 'none';
+                }
+            }
         }
         
         function _func_TraduzirCapitulo(var_intIndice) {
+            if (var_boolTraducaoCancelada) {
+                return;
+            }
+            
             if (!var_objTextoProgresso || !var_objPreenchimentoProgresso || !var_objPorcentagemProgresso || 
-                !var_objDetalhesProgresso || !var_objBotaoDownload || !var_objBotaoCancelar) {
+                !var_objDetalhesProgresso || !var_objBotaoDownload || !var_objBotaoCancelar || !var_objBotaoCancelarTraducao) {
                 console.error('Elementos de progresso não foram encontrados na tradução');
                 _func_MostrarNotificacao('Erro ao traduzir capítulo', 'error');
                 return;
             }
             
             if (var_intIndice >= var_intTotalCapitulos) {
+                // Verificar se ainda há traduções em andamento
+                if (var_intCapitulosEmAndamento > 0) {
+                    // Aguardar um pouco e verificar novamente
+                    setTimeout(() => _func_VerificarConclusao(), 500);
+                    return;
+                }
+                
                 // Tradução completa
-                var_objTextoProgresso.textContent = 'Tradução concluída!';
-                var_objPreenchimentoProgresso.style.width = '100%';
-                var_objPorcentagemProgresso.textContent = '100%';
-                var_objDetalhesProgresso.textContent = `${var_intTotalCapitulos} capítulos traduzidos`;
-                
-                // Mostrar botão de download e fechar modal após 2 segundos
-                setTimeout(() => {
-                    var_objBotaoDownload.style.display = 'inline-flex';
-                    var_objBotaoCancelar.style.display = 'inline-flex';
-                }, 1000);
-                
-                // Atualizar conteúdo do leitor
-                _func_AtualizarConteudoAposTraducao();
-                
+                _func_FinalizarTraducao();
                 return;
             }
             
-            var_intCapituloAtual = var_intIndice;
+            // Verificar se já atingiu o limite de traduções simultâneas
+            if (var_intCapitulosEmAndamento >= var_intMaximoSimultaneo) {
+                // Aguardar um pouco e tentar novamente
+                setTimeout(() => _func_TraduzirCapitulo(var_intIndice), 1000);
+                return;
+            }
+            
+            // Iniciar tradução deste capítulo
+            var_intCapitulosEmAndamento++;
+            var_listCapitulosEmAndamento.add(var_intIndice);
             _func_AtualizarProgresso();
-            var_objTextoProgresso.textContent = `Traduzindo capítulo ${var_intIndice + 1}...`;
+            
+            var_objTextoProgresso.textContent = `Traduzindo capítulos simultaneamente...`;
             
             const var_dicCapitulo = var_listCapitulos[var_intIndice];
             
@@ -381,6 +415,10 @@ function _func_TraduzirTodosCapitulos() {
             })
             .then(var_objResposta => var_objResposta.json())
             .then(var_dicDados => {
+                if (var_boolTraducaoCancelada) {
+                    return;
+                }
+                
                 if (var_dicDados.translated_text) {
                     var_listCapitulos[var_intIndice].content = var_dicDados.translated_text;
                     var_listCapitulos[var_intIndice].translated_content = var_dicDados.translated_text;
@@ -391,38 +429,97 @@ function _func_TraduzirTodosCapitulos() {
                         _func_CarregarCapitulo(var_intCapituloAtual);
                     }
                     
+                    // Marcar como concluído
+                    var_intCapitulosCompletados++;
+                    var_intCapitulosEmAndamento--;
+                    var_listCapitulosEmAndamento.delete(var_intIndice);
+                    _func_AtualizarProgresso();
+                    
                     // Continuar com próximo capítulo
-                    setTimeout(() => _func_TraduzirCapitulo(var_intIndice + 1), 500);
+                    _func_TraduzirCapitulo(var_intIndice + 1);
                 } else {
                     throw new Error(var_dicDados.error || 'Erro desconhecido');
                 }
             })
             .catch(var_objErro => {
-                var_objTextoProgresso.textContent = 'Erro na tradução';
-                var_objDetalhesProgresso.textContent = var_objErro.message;
-                var_objBotaoCancelar.style.display = 'inline-flex';
-                _func_MostrarNotificacao('Erro ao traduzir: ' + var_objErro.message, 'error');
+                if (var_boolTraducaoCancelada) {
+                    return;
+                }
+                
+                console.error(`Erro ao traduzir capítulo ${var_intIndice + 1}:`, var_objErro);
+                
+                // Marcar como concluído (com erro)
+                var_intCapitulosCompletados++;
+                var_intCapitulosEmAndamento--;
+                var_listCapitulosEmAndamento.delete(var_intIndice);
+                _func_AtualizarProgresso();
+                
+                // Continuar com próximo capítulo mesmo com erro
+                _func_TraduzirCapitulo(var_intIndice + 1);
             });
         }
         
-        // Iniciar tradução
+        function _func_VerificarConclusao() {
+            if (var_intCapitulosEmAndamento > 0) {
+                // Ainda há traduções em andamento, verificar novamente
+                setTimeout(() => _func_VerificarConclusao(), 500);
+            } else {
+                // Todas as traduções foram concluídas
+                _func_FinalizarTraducao();
+            }
+        }
+        
+        function _func_FinalizarTraducao() {
+            if (!var_objTextoProgresso || !var_objPreenchimentoProgresso || !var_objPorcentagemProgresso || 
+                !var_objDetalhesProgresso || !var_objBotaoDownload || !var_objBotaoCancelar || !var_objBotaoCancelarTraducao) {
+                console.error('Elementos de progresso não foram encontrados na finalização');
+                return;
+            }
+            
+            var_objTextoProgresso.textContent = 'Tradução concluída!';
+            var_objPreenchimentoProgresso.style.width = '100%';
+            var_objPorcentagemProgresso.textContent = '100%';
+            var_objDetalhesProgresso.textContent = `${var_intTotalCapitulos} capítulos traduzidos`;
+            
+            // Ocultar indicador de tradução simultânea
+            if (var_objSimultaneo) {
+                var_objSimultaneo.style.display = 'none';
+            }
+            
+            // Ocultar botão de cancelar tradução
+            var_objBotaoCancelarTraducao.style.display = 'none';
+            
+            // Mostrar botão de download e fechar modal após 2 segundos
+            setTimeout(() => {
+                var_objBotaoDownload.style.display = 'inline-flex';
+                var_objBotaoCancelar.style.display = 'inline-flex';
+            }, 1000);
+            
+            // Atualizar conteúdo do leitor
+            _func_AtualizarConteudoAposTraducao();
+        }
+        
+        // Iniciar tradução simultânea
         _func_TraduzirCapitulo(0);
     }
     
     // Event listeners
-    var_objBotaoCancelar.addEventListener('click', function() {
-        if (!var_objModalProgresso || !var_objBotaoDownload || !var_objBotaoCancelar) {
-            console.error('Elementos do modal não foram encontrados no cancelar');
+    var_objBotaoCancelarTraducao.addEventListener('click', function() {
+        if (!var_objModalProgresso || !var_objBotaoDownload || !var_objBotaoCancelar || !var_objBotaoCancelarTraducao) {
+            console.error('Elementos do modal não foram encontrados no cancelar tradução');
             return;
         }
         
+        var_boolTraducaoCancelada = true;
         var_objModalProgresso.classList.remove('mui-modal--open');
         var_objBotaoDownload.style.display = 'none';
         var_objBotaoCancelar.style.display = 'none';
+        var_objBotaoCancelarTraducao.style.display = 'none';
+        _func_MostrarNotificacao('Tradução cancelada pelo usuário', 'info');
     });
     
     var_objBotaoDownload.addEventListener('click', function() {
-        if (!var_objModalProgresso || !var_objBotaoDownload || !var_objBotaoCancelar) {
+        if (!var_objModalProgresso || !var_objBotaoDownload || !var_objBotaoCancelar || !var_objBotaoCancelarTraducao) {
             console.error('Elementos do modal não foram encontrados no download');
             return;
         }
@@ -430,6 +527,7 @@ function _func_TraduzirTodosCapitulos() {
         var_objModalProgresso.classList.remove('mui-modal--open');
         var_objBotaoDownload.style.display = 'none';
         var_objBotaoCancelar.style.display = 'none';
+        var_objBotaoCancelarTraducao.style.display = 'none';
         // Fazer download em nova aba
         window.open(`/download/${window.fileId}`, '_blank');
     });
@@ -581,4 +679,4 @@ function _func_ConfigurarBarraDicionarioRapido() {
 function _func_InicializarDadosCapitulos(dadosCapitulos, fileId) {
     var_listCapitulos = dadosCapitulos;
     window.fileId = fileId;
-} 
+}

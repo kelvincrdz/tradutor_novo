@@ -130,6 +130,10 @@
                     <div class="mui-progress-info">
                         <p class="mui-progress-text" id="progressText">Iniciando tradução...</p>
                         <p class="mui-progress-details" id="progressDetails">Capítulo 1 de {{ epub_data.chapters|length }}</p>
+                        <p class="mui-progress-simultaneous" id="progressSimultaneous" style="display:none;">
+                            <span class="mui-icon mui-icon--sync"></span>
+                            Tradução simultânea ativa
+                        </p>
                     </div>
                     <div class="mui-progress-bar">
                         <div class="mui-progress-fill" id="progressFill"></div>
@@ -138,6 +142,10 @@
                 </div>
             </div>
             <div class="mui-modal__footer" id="progressFooter">
+                <button class="mui-button mui-button--outlined mui-button--danger" id="cancelProgressBtn" style="display:none;">
+                    <span class="mui-icon mui-icon--close"></span>
+                    Cancelar Tradução
+                </button>
                 <button class="mui-button mui-button--outlined" id="cancelProgress" style="display:none;">
                     Cancelar
                 </button>
