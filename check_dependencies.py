@@ -9,52 +9,52 @@ import sys
 import subprocess
 from typing import List, Tuple
 
-def check_package(package_name: str, import_name: str = None) -> Tuple[bool, str]:
+def _func_VerificarPacote(var_strNomePacote: str, var_strNomeImport: str = None) -> Tuple[bool, str]:
     """
     Verifica se um pacote está instalado
     
     Args:
-        package_name: Nome do pacote para instalação
-        import_name: Nome para importação (se diferente do package_name)
+        var_strNomePacote: Nome do pacote para instalação
+        var_strNomeImport: Nome para importação (se diferente do var_strNomePacote)
     
     Returns:
         Tuple[bool, str]: (está_instalado, mensagem)
     """
-    if import_name is None:
-        import_name = package_name
+    if var_strNomeImport is None:
+        var_strNomeImport = var_strNomePacote
     
     try:
-        importlib.import_module(import_name)
-        return True, f"✅ {package_name} - OK"
+        importlib.import_module(var_strNomeImport)
+        return True, f"✅ {var_strNomePacote} - OK"
     except ImportError:
-        return False, f"❌ {package_name} - NÃO INSTALADO"
+        return False, f"❌ {var_strNomePacote} - NÃO INSTALADO"
 
-def install_package(package_name: str) -> bool:
+def _func_InstalarPacote(var_strNomePacote: str) -> bool:
     """
     Instala um pacote usando pip
     
     Args:
-        package_name: Nome do pacote para instalar
+        var_strNomePacote: Nome do pacote para instalar
     
     Returns:
         bool: True se instalado com sucesso, False caso contrário
     """
     try:
-        print(f"📦 Instalando {package_name}...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+        print(f"📦 Instalando {var_strNomePacote}...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", var_strNomePacote])
         return True
     except subprocess.CalledProcessError:
-        print(f"❌ Erro ao instalar {package_name}")
+        print(f"❌ Erro ao instalar {var_strNomePacote}")
         return False
 
-def check_dependencies() -> List[Tuple[str, bool, str]]:
+def _func_VerificarDependencias() -> List[Tuple[str, bool, str]]:
     """
     Verifica todas as dependências da aplicação
     
     Returns:
         List[Tuple[str, bool, str]]: Lista de (pacote, instalado, mensagem)
     """
-    dependencies = [
+    var_listDependencias = [
         ("flask", "flask"),
         ("werkzeug", "werkzeug"),
         ("beautifulsoup4", "bs4"),
@@ -62,31 +62,31 @@ def check_dependencies() -> List[Tuple[str, bool, str]]:
         ("lxml", "lxml"),  # Parser XML para BeautifulSoup
     ]
     
-    results = []
-    for package_name, import_name in dependencies:
-        installed, message = check_package(package_name, import_name)
-        results.append((package_name, installed, message))
+    var_listResultados = []
+    for var_strNomePacote, var_strNomeImport in var_listDependencias:
+        var_boolInstalado, var_strMensagem = _func_VerificarPacote(var_strNomePacote, var_strNomeImport)
+        var_listResultados.append((var_strNomePacote, var_boolInstalado, var_strMensagem))
     
-    return results
+    return var_listResultados
 
-def main():
+def _func_FuncaoPrincipal():
     """Função principal"""
     print("🔍 Verificando dependências do EPUB Translator...")
     print("=" * 60)
     
     # Verificar dependências
-    results = check_dependencies()
+    var_listResultados = _func_VerificarDependencias()
     
     # Exibir resultados
-    all_installed = True
-    for package_name, installed, message in results:
-        print(message)
-        if not installed:
-            all_installed = False
+    var_boolTodasInstaladas = True
+    for var_strNomePacote, var_boolInstalado, var_strMensagem in var_listResultados:
+        print(var_strMensagem)
+        if not var_boolInstalado:
+            var_boolTodasInstaladas = False
     
     print("=" * 60)
     
-    if all_installed:
+    if var_boolTodasInstaladas:
         print("🎉 Todas as dependências estão instaladas!")
         print("🚀 Você pode iniciar a aplicação com: python run.py")
         return True
@@ -94,17 +94,17 @@ def main():
         print("⚠️  Algumas dependências estão faltando.")
         
         # Perguntar se deseja instalar automaticamente
-        response = input("\n❓ Deseja instalar as dependências faltantes automaticamente? (s/n): ")
+        var_strResposta = input("\n❓ Deseja instalar as dependências faltantes automaticamente? (s/n): ")
         
-        if response.lower() in ['s', 'sim', 'y', 'yes']:
+        if var_strResposta.lower() in ['s', 'sim', 'y', 'yes']:
             print("\n📦 Instalando dependências faltantes...")
             
-            for package_name, installed, message in results:
-                if not installed:
-                    if install_package(package_name):
-                        print(f"✅ {package_name} instalado com sucesso!")
+            for var_strNomePacote, var_boolInstalado, var_strMensagem in var_listResultados:
+                if not var_boolInstalado:
+                    if _func_InstalarPacote(var_strNomePacote):
+                        print(f"✅ {var_strNomePacote} instalado com sucesso!")
                     else:
-                        print(f"❌ Falha ao instalar {package_name}")
+                        print(f"❌ Falha ao instalar {var_strNomePacote}")
                         return False
             
             print("\n🎉 Todas as dependências foram instaladas!")
@@ -114,22 +114,22 @@ def main():
             print("\n📋 Para instalar manualmente, execute:")
             print("pip install -r requirements.txt")
             print("\n📖 Ou instale cada dependência individualmente:")
-            for package_name, installed, message in results:
-                if not installed:
-                    print(f"pip install {package_name}")
+            for var_strNomePacote, var_boolInstalado, var_strMensagem in var_listResultados:
+                if not var_boolInstalado:
+                    print(f"pip install {var_strNomePacote}")
             return False
 
-def check_python_version():
+def _func_VerificarVersaoPython():
     """Verifica se a versão do Python é compatível"""
     print("🐍 Verificando versão do Python...")
     
-    version = sys.version_info
-    if version.major < 3 or (version.major == 3 and version.minor < 8):
-        print(f"❌ Python {version.major}.{version.minor} não é suportado.")
+    var_objVersao = sys.version_info
+    if var_objVersao.major < 3 or (var_objVersao.major == 3 and var_objVersao.minor < 8):
+        print(f"❌ Python {var_objVersao.major}.{var_objVersao.minor} não é suportado.")
         print("📋 Requer Python 3.8 ou superior.")
         return False
     else:
-        print(f"✅ Python {version.major}.{version.minor}.{version.micro} - OK")
+        print(f"✅ Python {var_objVersao.major}.{var_objVersao.minor}.{var_objVersao.micro} - OK")
         return True
 
 if __name__ == '__main__':
@@ -137,13 +137,13 @@ if __name__ == '__main__':
     print("=" * 60)
     
     # Verificar versão do Python
-    if not check_python_version():
+    if not _func_VerificarVersaoPython():
         sys.exit(1)
     
     print()
     
     # Verificar dependências
-    if main():
+    if _func_FuncaoPrincipal():
         print("\n🎯 Verificação concluída com sucesso!")
     else:
         print("\n❌ Verificação falhou. Instale as dependências e tente novamente.")

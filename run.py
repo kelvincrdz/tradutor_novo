@@ -7,9 +7,9 @@ import os
 import sys
 import importlib
 
-def check_dependencies():
+def _func_VerificarDependencias():
     """Verifica se todas as dependências estão instaladas"""
-    dependencies = [
+    var_listDependencias = [
         ("flask", "flask"),
         ("werkzeug", "werkzeug"),
         ("beautifulsoup4", "bs4"),
@@ -17,17 +17,17 @@ def check_dependencies():
         ("lxml", "lxml"),
     ]
     
-    missing_deps = []
+    var_listDependenciasFaltantes = []
     
-    for package_name, import_name in dependencies:
+    for var_strNomePacote, var_strNomeImport in var_listDependencias:
         try:
-            importlib.import_module(import_name)
-            print(f"✅ {package_name}")
+            importlib.import_module(var_strNomeImport)
+            print(f"✅ {var_strNomePacote}")
         except ImportError:
-            print(f"❌ {package_name} - NÃO INSTALADO")
-            missing_deps.append(package_name)
+            print(f"❌ {var_strNomePacote} - NÃO INSTALADO")
+            var_listDependenciasFaltantes.append(var_strNomePacote)
     
-    if missing_deps:
+    if var_listDependenciasFaltantes:
         print("\n⚠️  Dependências faltando!")
         print("📦 Execute: pip install -r requirements.txt")
         print("🔍 Ou execute: python check_dependencies.py")
@@ -35,28 +35,28 @@ def check_dependencies():
     
     return True
 
-def check_python_version():
+def _func_VerificarVersaoPython():
     """Verifica se a versão do Python é compatível"""
-    version = sys.version_info
-    if version.major < 3 or (version.major == 3 and version.minor < 8):
-        print(f"❌ Python {version.major}.{version.minor} não é suportado.")
+    var_objVersao = sys.version_info
+    if var_objVersao.major < 3 or (var_objVersao.major == 3 and var_objVersao.minor < 8):
+        print(f"❌ Python {var_objVersao.major}.{var_objVersao.minor} não é suportado.")
         print("📋 Requer Python 3.8 ou superior.")
         return False
     return True
 
-def main():
+def _func_FuncaoPrincipal():
     """Função principal para iniciar a aplicação"""
     
     print("🔍 Verificando ambiente...")
     
     # Verificar versão do Python
-    if not check_python_version():
+    if not _func_VerificarVersaoPython():
         sys.exit(1)
     
     # Verificar dependências
     
     print("\n📦 Verificando dependências...")
-    if not check_dependencies():
+    if not _func_VerificarDependencias():
         sys.exit(1)
     
     # Verificar se os diretórios necessários existem
@@ -82,13 +82,13 @@ def main():
         )
     except KeyboardInterrupt:
         print("\n👋 Aplicação encerrada pelo usuário")
-    except ImportError as e:
-        print(f"❌ Erro ao importar aplicação: {e}")
+    except ImportError as var_objErro:
+        print(f"❌ Erro ao importar aplicação: {var_objErro}")
         print("🔍 Verifique se todas as dependências estão instaladas")
         sys.exit(1)
-    except Exception as e:
-        print(f"❌ Erro ao iniciar aplicação: {e}")
+    except Exception as var_objErro:
+        print(f"❌ Erro ao iniciar aplicação: {var_objErro}")
         sys.exit(1)
 
 if __name__ == '__main__':
-    main() 
+    _func_FuncaoPrincipal() 

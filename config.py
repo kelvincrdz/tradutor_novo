@@ -1,24 +1,24 @@
 import os
 
-class Config:
+class _cls_Configuracao:
     """Configurações base da aplicação"""
     
     # Configurações básicas
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'sua_chave_secreta_aqui'
-    DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
+    var_strChaveSecreta = os.environ.get('SECRET_KEY') or 'sua_chave_secreta_aqui'
+    var_boolModoDebug = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
     
     # Configurações de upload
-    UPLOAD_FOLDER = 'uploads'
-    EPUB_FOLDER = 'epub_files'
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
-    ALLOWED_EXTENSIONS = {'epub'}
+    var_strPastaUpload = 'uploads'
+    var_strPastaEpub = 'epub_files'
+    var_intTamanhoMaximoConteudo = 16 * 1024 * 1024  # 16MB max file size
+    var_setExtensoesPermitidas = {'epub'}
     
     # Configurações de tradução
-    DEFAULT_SOURCE_LANG = 'auto'
-    DEFAULT_TARGET_LANG = 'pt'
+    var_strIdiomaOrigemPadrao = 'auto'
+    var_strIdiomaDestinoPadrao = 'pt'
     
     # Idiomas suportados
-    SUPPORTED_LANGUAGES = {
+    var_dicIdiomasSuportados = {
         'auto': 'Detectar automaticamente',
         'en': 'Inglês',
         'es': 'Espanhol',
@@ -34,41 +34,41 @@ class Config:
     }
     
     # Configurações de cache
-    CACHE_TIMEOUT = 3600  # 1 hora
+    var_intTimeoutCache = 3600  # 1 hora
     
     # Configurações de segurança
-    SESSION_COOKIE_SECURE = False  # True em produção com HTTPS
-    SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = 'Lax'
+    var_boolCookieSessaoSeguro = False  # True em produção com HTTPS
+    var_boolCookieSessaoHttpOnly = True
+    var_strCookieSessaoSameSite = 'Lax'
     
     # Configurações de logging
-    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
-    LOG_FILE = 'epub_translator.log'
+    var_strNivelLog = os.environ.get('LOG_LEVEL', 'INFO')
+    var_strArquivoLog = 'epub_translator.log'
 
-class DevelopmentConfig(Config):
+class _cls_ConfiguracaoDesenvolvimento(_cls_Configuracao):
     """Configurações para desenvolvimento"""
-    DEBUG = True
-    TESTING = False
+    var_boolModoDebug = True
+    var_boolModoTeste = False
 
-class ProductionConfig(Config):
+class _cls_ConfiguracaoProducao(_cls_Configuracao):
     """Configurações para produção"""
-    DEBUG = False
-    TESTING = False
-    SESSION_COOKIE_SECURE = True
+    var_boolModoDebug = False
+    var_boolModoTeste = False
+    var_boolCookieSessaoSeguro = True
     
     # Em produção, use uma chave secreta forte
-    SECRET_KEY = os.environ.get('SECRET_KEY') or os.urandom(24)
+    var_strChaveSecreta = os.environ.get('SECRET_KEY') or os.urandom(24)
 
-class TestingConfig(Config):
+class _cls_ConfiguracaoTeste(_cls_Configuracao):
     """Configurações para testes"""
-    TESTING = True
-    DEBUG = True
-    WTF_CSRF_ENABLED = False
+    var_boolModoTeste = True
+    var_boolModoDebug = True
+    var_boolCSRFHabilitado = False
 
 # Dicionário de configurações
-config = {
-    'development': DevelopmentConfig,
-    'production': ProductionConfig,
-    'testing': TestingConfig,
-    'default': DevelopmentConfig
+var_dicConfiguracoes = {
+    'development': _cls_ConfiguracaoDesenvolvimento,
+    'production': _cls_ConfiguracaoProducao,
+    'testing': _cls_ConfiguracaoTeste,
+    'default': _cls_ConfiguracaoDesenvolvimento
 } 

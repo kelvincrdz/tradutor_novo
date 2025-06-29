@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}Dicionário - EPUB Translator{% endblock %}
+
+{% block content %}
+<div class="mui-container">
+    <!-- Header -->
+    <div class="mui-dicionario-header">
+        <div class="mui-dicionario-header__content">
+            <h1 class="mui-dicionario-header__title">
+                <span class="mui-icon mui-icon--translate"></span>
+                Dicionário Personalizado
+            </h1>
+            <p class="mui-dicionario-header__description">
+                Gerencie suas traduções personalizadas para melhorar a qualidade das traduções automáticas
+            </p>
+        </div>
+    </div>
+
+    <!-- Add New Entry -->
+    <div class="mui-section">
+        <div class="mui-card">
+            <div class="mui-card__header">
+                <h2 class="mui-card__title">
+                    <span class="mui-icon mui-icon--add"></span>
+                    Adicionar Nova Entrada
+                </h2>
+                <p class="mui-card__subtitle">
+                    Adicione palavras ou frases com suas traduções personalizadas
+                </p>
+            </div>
+            <div class="mui-card__content">
+                <form id="addEntryForm" class="mui-form">
+                    <div class="mui-form-row">
+                        <div class="mui-form-group">
+                            <label class="mui-form-label" for="originalText">Texto Original:</label>
+                            <input type="text" id="originalText" name="original" class="mui-input" required placeholder="Digite o texto original...">
+                        </div>
+                        <div class="mui-form-group">
+                            <label class="mui-form-label" for="translatedText">Tradução:</label>
+                            <input type="text" id="translatedText" name="translated" class="mui-input" required placeholder="Digite a tradução...">
+                        </div>
+                    </div>
+                    <div class="mui-form-actions">
+                        <button type="submit" class="mui-button mui-button--contained mui-button--primary">
+                            <span class="mui-icon mui-icon--add"></span>
+                            Adicionar ao Dicionário
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- dicionario List -->
+    <div class="mui-section">
+        <div class="mui-card">
+            <div class="mui-card__header">
+                <h2 class="mui-card__title">
+                    <span class="mui-icon mui-icon--list"></span>
+                    Entradas do Dicionário
+                </h2>
+                <p class="mui-card__subtitle">
+                    {{ dicionario|length }} entradas cadastradas
+                </p>
+            </div>
+            <div class="mui-card__content">
+                {% if dicionario %}
+                <div class="mui-dicionario-list">
+                    {% for original, translated in dicionario.items() %}
+                    <div class="mui-dicionario-item" data-original="{{ original }}">
+                        <div class="mui-dicionario-item__content">
+                            <div class="mui-dicionario-item__text">
+                                <div class="mui-dicionario-item__original">
+                                    <strong>Original:</strong> {{ original }}
+                                </div>
+                                <div class="mui-dicionario-item__translated">
+                                    <strong>Tradução:</strong> {{ translated }}
+                                </div>
+                            </div>
+                            <div class="mui-dicionario-item__actions">
+                                <button class="mui-button mui-button--outlined mui-button--small" onclick="_func_EditarEntrada('{{ original }}', '{{ translated }}')">
+                                    <span class="mui-icon mui-icon--edit"></span>
+                                    Editar
+                                </button>
+                                <button class="mui-button mui-button--outlined mui-button--small mui-button--danger" onclick="_func_RemoverEntrada('{{ original }}')">
+                                    <span class="mui-icon mui-icon--delete"></span>
+                                    Remover
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="mui-empty-state">
+                    <span class="mui-icon mui-icon--translate"></span>
+                    <h3>Nenhuma entrada encontrada</h3>
+                    <p>Adicione sua primeira entrada ao dicionário para começar.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+                    
+    <!-- Search -->
+    <div class="mui-section">
+        <div class="mui-card">
+            <div class="mui-card__header">
+                <h2 class="mui-card__title">
+                    <span class="mui-icon mui-icon--search"></span>
+                    Buscar no Dicionário
+                </h2>
+            </div>
+            <div class="mui-card__content">
+                <div class="mui-search">
+                    <div class="mui-search__input">
+                        <span class="mui-icon mui-icon--search"></span>
+                        <input type="text" id="searchInput" class="mui-input" placeholder="Buscar por texto original ou tradução...">
+                    </div>
+                </div>
+                <div id="searchResults" class="mui-search-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import/Export dicionario -->
+    <div class="mui-section">
+        <div class="mui-card">
+            <div class="mui-card__header">
+                <h2 class="mui-card__title">
+                    <span class="mui-icon mui-icon--settings"></span>
+                    Importar/Exportar Dicionário
+                </h2>
+                <p class="mui-card__subtitle">
+                    Faça backup do seu dicionário ou importe entradas de outros arquivos
+                </p>
+            </div>
+            <div class="mui-card__content">
+                <div class="mui-form-row">
+                    <div class="mui-form-group">
+                        <label class="mui-form-label">Upload de Dicionário:</label>
+                        <form id="uploadForm" enctype="multipart/form-data" class="mui-upload-form">
+                            <div class="mui-upload-area" id="dicionarioUploadArea">
+                                <span class="mui-icon mui-icon--upload"></span>
+                                <p class="mui-upload-text">
+                                    <strong>Clique para selecionar</strong> ou arraste o arquivo JSON aqui
+                                </p>
+                                <p class="mui-upload-hint">Formatos suportados: .json</p>
+                                <input type="file" id="dicionarioFile" name="dictionary_file" accept=".json" class="mui-file-input" required>
+                            </div>
+                            <div class="mui-form-actions">
+                                <button type="submit" class="mui-button mui-button--contained mui-button--primary">
+                                    <span class="mui-icon mui-icon--upload"></span>
+                                    Importar Dicionário
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="mui-form-group">
+                        <label class="mui-form-label">Download do Dicionário:</label>
+                        <div class="mui-download-area">
+                            <span class="mui-icon mui-icon--download"></span>
+                            <p class="mui-upload-text">
+                                <strong>Baixe seu dicionário</strong> em formato JSON
+                            </p>
+                            <p class="mui-upload-hint">Backup completo das suas traduções personalizadas</p>
+                            <a href="/_func_DownloadDicionario" class="mui-button mui-button--outlined">
+                                <span class="mui-icon mui-icon--download"></span>
+                                Exportar Dicionário
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+                
+<!-- Edit Modal -->
+<div class="mui-modal" id="editModal">
+    <div class="mui-modal__overlay" id="editModalOverlay"></div>
+    <div class="mui-modal__content">
+        <div class="mui-modal__header">
+            <h2 class="mui-modal__title">
+                <span class="mui-icon mui-icon--edit"></span>
+                Editar Entrada
+            </h2>
+            <button class="mui-modal__close" id="closeEditModal">
+                <span class="mui-icon mui-icon--close"></span>
+            </button>
+        </div>
+        <div class="mui-modal__body">
+            <form id="editEntryForm" class="mui-form">
+                <div class="mui-form-group">
+                    <label class="mui-form-label" for="editOriginalText">Texto Original:</label>
+                    <input type="text" id="editOriginalText" name="original" class="mui-input" required>
+                </div>
+                <div class="mui-form-group">
+                    <label class="mui-form-label" for="editTranslatedText">Tradução:</label>
+                    <input type="text" id="editTranslatedText" name="translated" class="mui-input" required>
+                </div>
+            </form>
+        </div>
+        <div class="mui-modal__footer">
+            <button class="mui-button mui-button--outlined" onclick="_func_FecharModalEdicao()">
+                Cancelar
+            </button>
+            <button class="mui-button mui-button--contained mui-button--primary" onclick="_func_SalvarEdicao()">
+                <span class="mui-icon mui-icon--save"></span>
+                Salvar Alterações
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dicionario.js') }}"></script>
+{% endblock %} 

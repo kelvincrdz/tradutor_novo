@@ -131,7 +131,7 @@ dmypy.json
 # Project specific
 uploads/
 epub_files/
-dictionary.json
+dicionario.json
 *.epub
 temp/
 temp_epub/

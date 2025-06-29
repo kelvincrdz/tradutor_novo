@@ -59,7 +59,7 @@ http://localhost:5000
 - **Feature Cards**: Exibição de recursos
 - **Steps**: Guia de uso passo a passo
 - **Reader Panel**: Interface de leitura com sidebar
-- **Dictionary List**: Lista de entradas do dicionário
+- **dicionario List**: Lista de entradas do dicionário
 - **Search**: Busca em tempo real
 
 ## 🔧 Funcionalidades
@@ -118,10 +118,10 @@ tradutor_novo/
 │   ├── base.html         # Template base
 │   ├── index.html        # Página inicial
 │   ├── reader.html       # Interface do leitor
-│   └── dictionary.html   # Gerenciamento do dicionário
+│   └── dicionario.html   # Gerenciamento do dicionário
 ├── uploads/              # Arquivos temporários
 ├── epub_files/           # Conteúdo extraído
-└── dictionary.json       # Dicionário personalizado
+└── dicionario.json       # Dicionário personalizado
 ```
 
 ## 🔄 Atualizações Recentes

@@ -16,647 +16,647 @@ app = Flask(__name__)
 app.secret_key = 'sua_chave_secreta_aqui'
 
 # Configurações
-UPLOAD_FOLDER = 'uploads'
-EPUB_FOLDER = 'epub_files'
-DICTIONARY_FILE = 'dictionary.json'
-ALLOWED_EXTENSIONS = {'epub'}
+PASTA_UPLOADS = 'uploads'
+EPUB_PASTA = 'epub_files'
+DIC_FILE = 'dicionario.json'
+PERMITIR_EXTENCAO = {'epub'}
 
 # Criar diretórios se não existirem
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(EPUB_FOLDER, exist_ok=True)
+os.makedirs(PASTA_UPLOADS, exist_ok=True)
+os.makedirs(EPUB_PASTA, exist_ok=True)
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+def _func_PermiteArquivo(var_strNomeArquivo):
+    return '.' in var_strNomeArquivo and var_strNomeArquivo.rsplit('.', 1)[1].lower() in PERMITIR_EXTENCAO
 
-def get_file_hash(file_path):
+def _func_ObterHashArquivo(var_strCaminho):
     """Calcula o hash MD5 de um arquivo para detectar duplicatas"""
-    hash_md5 = hashlib.md5()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
+    var_objHashMD5 = hashlib.md5()
+    with open(var_strCaminho, "rb") as var_objArquivo:
+        for var_strChunk in iter(lambda: var_objArquivo.read(4096), b""):
+            var_objHashMD5.update(var_strChunk)
+    return var_objHashMD5.hexdigest()
 
-def find_existing_epub_by_hash(file_hash):
+def _func_EncontrarEpubPorHash(var_strHashArquivo):
     """Procura por um EPUB existente com o mesmo hash"""
-    if not os.path.exists(EPUB_FOLDER):
+    if not os.path.exists(EPUB_PASTA):
         return None
     
-    for filename in os.listdir(EPUB_FOLDER):
-        if filename.endswith('_content.json'):
-            file_id = filename.replace('_content.json', '')
+    for var_strNomeArquivo in os.listdir(EPUB_PASTA):
+        if var_strNomeArquivo.endswith('_content.json'):
+            var_strIdArquivo = var_strNomeArquivo.replace('_content.json', '')
             # Verificar se existe o arquivo original
-            original_files = [f for f in os.listdir(UPLOAD_FOLDER) if f.startswith(file_id)]
-            if original_files:
-                original_file_path = os.path.join(UPLOAD_FOLDER, original_files[0])
-                if os.path.exists(original_file_path):
-                    original_hash = get_file_hash(original_file_path)
-                    if original_hash == file_hash:
-                        return file_id
+            var_listArquivosOriginais = [f for f in os.listdir(PASTA_UPLOADS) if f.startswith(var_strIdArquivo)]
+            if var_listArquivosOriginais:
+                var_strCaminhoOriginal = os.path.join(PASTA_UPLOADS, var_listArquivosOriginais[0])
+                if os.path.exists(var_strCaminhoOriginal):
+                    var_strHashOriginal = _func_ObterHashArquivo(var_strCaminhoOriginal)
+                    if var_strHashOriginal == var_strHashArquivo:
+                        return var_strIdArquivo
     return None
 
-def load_dictionary():
+def _func_CarregarDicionario():
     """Carrega o dicionário de tradução personalizado"""
-    if os.path.exists(DICTIONARY_FILE):
-        with open(DICTIONARY_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
+    if os.path.exists(DIC_FILE):
+        with open(DIC_FILE, 'r', encoding='utf-8') as var_objArquivo:
+            return json.load(var_objArquivo)
     return {}
 
-def save_dictionary(dictionary):
+def _func_SalvarDicionario(var_dicDicionario):
     """Salva o dicionário de tradução personalizado"""
-    with open(DICTIONARY_FILE, 'w', encoding='utf-8') as f:
-        json.dump(dictionary, f, ensure_ascii=False, indent=2)
+    with open(DIC_FILE, 'w', encoding='utf-8') as var_objArquivo:
+        json.dump(var_dicDicionario, var_objArquivo, ensure_ascii=False, indent=2)
 
-def extract_epub_content(epub_path):
+def _func_ExtrairConteudoEpub(var_strCaminhoEpub):
     """Extrai o conteúdo de um arquivo EPUB"""
-    content = {
+    var_dicConteudo = {
         'title': '',
         'chapters': [],
         'metadata': {}
     }
     
     try:
-        with zipfile.ZipFile(epub_path, 'r') as epub:
+        with zipfile.ZipFile(var_strCaminhoEpub, 'r') as var_objEpub:
             # Encontrar o arquivo container.xml
-            container_xml = epub.read('META-INF/container.xml')
-            soup = BeautifulSoup(container_xml, 'xml')
-            opf_path = soup.find('rootfile')['full-path']
+            var_strContainerXML = var_objEpub.read('META-INF/container.xml')
+            var_objSoup = BeautifulSoup(var_strContainerXML, 'xml')
+            var_strCaminhoOPF = var_objSoup.find('rootfile')['full-path']
             
             # Ler o arquivo OPF
-            opf_content = epub.read(opf_path)
-            opf_soup = BeautifulSoup(opf_content, 'xml')
+            var_strConteudoOPF = var_objEpub.read(var_strCaminhoOPF)
+            var_objSoupOPF = BeautifulSoup(var_strConteudoOPF, 'xml')
             
             # Extrair título
-            title_elem = opf_soup.find('dc:title')
-            if title_elem:
-                content['title'] = title_elem.text
+            var_objElementoTitulo = var_objSoupOPF.find('dc:title')
+            if var_objElementoTitulo:
+                var_dicConteudo['title'] = var_objElementoTitulo.text
             
             # Encontrar o diretório base
-            opf_dir = os.path.dirname(opf_path)
+            var_strDiretorioOPF = os.path.dirname(var_strCaminhoOPF)
             
             # Encontrar o arquivo de manifesto
-            manifest = opf_soup.find('manifest')
-            if manifest:
+            var_objManifesto = var_objSoupOPF.find('manifest')
+            if var_objManifesto:
                 # Encontrar arquivos HTML
-                html_files = []
-                for item in manifest.find_all('item'):
-                    if item.get('media-type') == 'application/xhtml+xml':
-                        href = item['href']
-                        if not href.startswith('http'):
-                            if opf_dir:
-                                href = f"{opf_dir}/{href}"
-                        html_files.append(href)
+                var_listArquivosHTML = []
+                for var_objItem in var_objManifesto.find_all('item'):
+                    if var_objItem.get('media-type') == 'application/xhtml+xml':
+                        var_strHref = var_objItem['href']
+                        if not var_strHref.startswith('http'):
+                            if var_strDiretorioOPF:
+                                var_strHref = f"{var_strDiretorioOPF}/{var_strHref}"
+                        var_listArquivosHTML.append(var_strHref)
                 
                 # Ler cada arquivo HTML
-                for i, html_file in enumerate(html_files):
+                for var_intIndice, var_strArquivoHTML in enumerate(var_listArquivosHTML):
                     try:
-                        html_content = epub.read(html_file)
-                        soup = BeautifulSoup(html_content, 'html.parser')
+                        var_strConteudoHTML = var_objEpub.read(var_strArquivoHTML)
+                        var_objSoupHTML = BeautifulSoup(var_strConteudoHTML, 'html.parser')
                         
                         # Extrair texto preservando formatação
-                        def extract_formatted_text(element):
+                        def _func_ExtrairTextoFormatado(var_objElemento):
                             """Extrai texto preservando formatação básica"""
-                            if element.name in ['p', 'div', 'section']:
+                            if var_objElemento.name in ['p', 'div', 'section']:
                                 # Preservar quebras de linha dentro do elemento
-                                text = element.get_text()
+                                var_strTexto = var_objElemento.get_text()
                                 # Substituir quebras HTML por quebras de texto
-                                for br in element.find_all('br'):
-                                    br.replace_with('\n')
+                                for var_objBR in var_objElemento.find_all('br'):
+                                    var_objBR.replace_with('\n')
                                 # Adicionar quebra de linha dupla para parágrafos
-                                return text.strip() + '\n\n'
-                            elif element.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                                return var_strTexto.strip() + '\n\n'
+                            elif var_objElemento.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
                                 # Títulos com quebra dupla
-                                return element.get_text().strip() + '\n\n'
-                            elif element.name in ['br']:
+                                return var_objElemento.get_text().strip() + '\n\n'
+                            elif var_objElemento.name in ['br']:
                                 # Quebra de linha simples
                                 return '\n'
-                            elif element.name in ['blockquote']:
+                            elif var_objElemento.name in ['blockquote']:
                                 # Citações com quebra dupla
-                                text = element.get_text()
-                                for br in element.find_all('br'):
-                                    br.replace_with('\n')
-                                return text.strip() + '\n\n'
+                                var_strTexto = var_objElemento.get_text()
+                                for var_objBR in var_objElemento.find_all('br'):
+                                    var_objBR.replace_with('\n')
+                                return var_strTexto.strip() + '\n\n'
                             else:
                                 # Texto normal
-                                return element.get_text().strip()
+                                return var_objElemento.get_text().strip()
                         
                         # Extrair texto com formatação
-                        formatted_text = ""
-                        for element in soup.find_all(['p', 'div', 'section', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote']):
-                            formatted_text += extract_formatted_text(element)
+                        var_strTextoFormatado = ""
+                        for var_objElemento in var_objSoupHTML.find_all(['p', 'div', 'section', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote']):
+                            var_strTextoFormatado += _func_ExtrairTextoFormatado(var_objElemento)
                         
                         # Se não encontrou elementos estruturados, usar get_text() normal
-                        if not formatted_text.strip():
-                            text = soup.get_text()
+                        if not var_strTextoFormatado.strip():
+                            var_strTexto = var_objSoupHTML.get_text()
                             # Preservar quebras de linha existentes
-                            for br in soup.find_all('br'):
-                                br.replace_with('\n')
+                            for var_objBR in var_objSoupHTML.find_all('br'):
+                                var_objBR.replace_with('\n')
                             # Limpar texto preservando quebras de linha
-                            lines = []
-                            for line in text.splitlines():
-                                line = line.strip()
-                                if line:
-                                    lines.append(line)
-                            text = '\n\n'.join(lines)
+                            var_listLinhas = []
+                            for var_strLinha in var_strTexto.splitlines():
+                                var_strLinha = var_strLinha.strip()
+                                if var_strLinha:
+                                    var_listLinhas.append(var_strLinha)
+                            var_strTexto = '\n\n'.join(var_listLinhas)
                         else:
-                            text = formatted_text
+                            var_strTexto = var_strTextoFormatado
                         
                         # Limpar texto final
-                        text = text.strip()
+                        var_strTexto = var_strTexto.strip()
                         # Remover quebras de linha excessivas
-                        text = re.sub(r'\n{3,}', '\n\n', text)
+                        var_strTexto = re.sub(r'\n{3,}', '\n\n', var_strTexto)
                         # Preservar quebras simples dentro de parágrafos
-                        text = re.sub(r'\n([^-\n])', r'\n\1', text)
+                        var_strTexto = re.sub(r'\n([^-\n])', r'\n\1', var_strTexto)
                         
-                        if text.strip():
-                            content['chapters'].append({
-                                'id': i,
-                                'title': f'Capítulo {i+1}',
-                                'content': text,
-                                'html_content': str(soup)
+                        if var_strTexto.strip():
+                            var_dicConteudo['chapters'].append({
+                                'id': var_intIndice,
+                                'title': f'Capítulo {var_intIndice+1}',
+                                'content': var_strTexto,
+                                'html_content': str(var_objSoupHTML)
                             })
-                    except Exception as e:
-                        print(f"Erro ao processar arquivo {html_file}: {e}")
+                    except Exception as var_objErro:
+                        print(f"Erro ao processar arquivo {var_strArquivoHTML}: {var_objErro}")
                         continue
                         
-    except Exception as e:
-        print(f"Erro ao extrair EPUB: {e}")
+    except Exception as var_objErro:
+        print(f"Erro ao extrair EPUB: {var_objErro}")
     
-    return content
+    return var_dicConteudo
 
-def translate_text(text, source_lang='auto', target_lang='pt'):
+def _func_TraduzirTexto(var_strTexto, var_strIdiomaOrigem='auto', var_strIdiomaDestino='pt'):
     """Traduz texto usando Deep Translator, dividindo textos longos em partes menores"""
     try:
         # Limite do Google Translate (5000 caracteres)
-        MAX_CHARS = 4500  # Usar 4500 para ter margem de segurança
+        var_intMaxCaracteres = 4500  # Usar 4500 para ter margem de segurança
         
         # Se o texto é menor que o limite, traduzir normalmente
-        if len(text) <= MAX_CHARS:
-            translator = GoogleTranslator(source=source_lang, target=target_lang)
-            return translator.translate(text)
+        if len(var_strTexto) <= var_intMaxCaracteres:
+            var_objTradutor = GoogleTranslator(source=var_strIdiomaOrigem, target=var_strIdiomaDestino)
+            return var_objTradutor.translate(var_strTexto)
         
         # Para textos longos, dividir em partes
-        print(f"Texto muito longo ({len(text)} caracteres), dividindo em partes...")
+        print(f"Texto muito longo ({len(var_strTexto)} caracteres), dividindo em partes...")
         
         # Tentar dividir por parágrafos primeiro
-        paragraphs = text.split('\n\n')
+        var_listParagrafos = var_strTexto.split('\n\n')
         
         # Se não há parágrafos bem definidos, dividir por sentenças
-        if len(paragraphs) <= 1:
+        if len(var_listParagrafos) <= 1:
             # Dividir por pontos finais, exclamação e interrogação
-            sentences = []
-            current_sentence = ""
+            var_listSentencas = []
+            var_strSentencaAtual = ""
             
-            for char in text:
-                current_sentence += char
-                if char in '.!?':
-                    sentences.append(current_sentence.strip())
-                    current_sentence = ""
+            for var_strCaractere in var_strTexto:
+                var_strSentencaAtual += var_strCaractere
+                if var_strCaractere in '.!?':
+                    var_listSentencas.append(var_strSentencaAtual.strip())
+                    var_strSentencaAtual = ""
             
             # Adicionar a última sentença se não terminou com pontuação
-            if current_sentence.strip():
-                sentences.append(current_sentence.strip())
+            if var_strSentencaAtual.strip():
+                var_listSentencas.append(var_strSentencaAtual.strip())
             
             # Usar sentenças como base para divisão
-            text_parts = sentences
+            var_listPartesTexto = var_listSentencas
         else:
             # Usar parágrafos como base para divisão
-            text_parts = paragraphs
+            var_listPartesTexto = var_listParagrafos
         
-        translated_parts = []
-        current_part = ""
+        var_listPartesTraduzidas = []
+        var_strParteAtual = ""
         
-        for part in text_parts:
+        for var_strParte in var_listPartesTexto:
             # Se adicionar esta parte excederia o limite
-            if len(current_part) + len(part) > MAX_CHARS:
+            if len(var_strParteAtual) + len(var_strParte) > var_intMaxCaracteres:
                 # Traduzir a parte atual se não estiver vazia
-                if current_part.strip():
-                    translator = GoogleTranslator(source=source_lang, target=target_lang)
-                    translated_part = translator.translate(current_part.strip())
-                    translated_parts.append(translated_part)
+                if var_strParteAtual.strip():
+                    var_objTradutor = GoogleTranslator(source=var_strIdiomaOrigem, target=var_strIdiomaDestino)
+                    var_strParteTraduzida = var_objTradutor.translate(var_strParteAtual.strip())
+                    var_listPartesTraduzidas.append(var_strParteTraduzida)
                 
                 # Se uma parte individual é muito longa, dividir ainda mais
-                if len(part) > MAX_CHARS:
+                if len(var_strParte) > var_intMaxCaracteres:
                     # Dividir em chunks menores
-                    chunks = [part[i:i+MAX_CHARS] for i in range(0, len(part), MAX_CHARS)]
-                    for chunk in chunks:
-                        if chunk.strip():
-                            translator = GoogleTranslator(source=source_lang, target=target_lang)
-                            translated_chunk = translator.translate(chunk.strip())
-                            translated_parts.append(translated_chunk)
+                    var_listChunks = [var_strParte[i:i+var_intMaxCaracteres] for i in range(0, len(var_strParte), var_intMaxCaracteres)]
+                    for var_strChunk in var_listChunks:
+                        if var_strChunk.strip():
+                            var_objTradutor = GoogleTranslator(source=var_strIdiomaOrigem, target=var_strIdiomaDestino)
+                            var_strChunkTraduzido = var_objTradutor.translate(var_strChunk.strip())
+                            var_listPartesTraduzidas.append(var_strChunkTraduzido)
                 else:
                     # Iniciar nova parte com a parte atual
-                    current_part = part
+                    var_strParteAtual = var_strParte
             else:
                 # Adicionar parte à parte atual
-                if current_part:
-                    if len(paragraphs) > 1:
-                        current_part += '\n\n' + part
+                if var_strParteAtual:
+                    if len(var_listParagrafos) > 1:
+                        var_strParteAtual += '\n\n' + var_strParte
                     else:
-                        current_part += ' ' + part
+                        var_strParteAtual += ' ' + var_strParte
                 else:
-                    current_part = part
+                    var_strParteAtual = var_strParte
         
         # Traduzir a última parte se não estiver vazia
-        if current_part.strip():
-            translator = GoogleTranslator(source=source_lang, target=target_lang)
-            translated_part = translator.translate(current_part.strip())
-            translated_parts.append(translated_part)
+        if var_strParteAtual.strip():
+            var_objTradutor = GoogleTranslator(source=var_strIdiomaOrigem, target=var_strIdiomaDestino)
+            var_strParteTraduzida = var_objTradutor.translate(var_strParteAtual.strip())
+            var_listPartesTraduzidas.append(var_strParteTraduzida)
         
         # Juntar todas as partes traduzidas
-        if len(paragraphs) > 1:
-            final_translation = '\n\n'.join(translated_parts)
+        if len(var_listParagrafos) > 1:
+            var_strTraducaoFinal = '\n\n'.join(var_listPartesTraduzidas)
         else:
-            final_translation = ' '.join(translated_parts)
+            var_strTraducaoFinal = ' '.join(var_listPartesTraduzidas)
         
-        print(f"Tradução concluída em {len(translated_parts)} partes")
+        print(f"Tradução concluída em {len(var_listPartesTraduzidas)} partes")
         
-        return final_translation
+        return var_strTraducaoFinal
         
-    except Exception as e:
-        print(f"Erro na tradução: {e}")
-        return text
+    except Exception as var_objErro:
+        print(f"Erro na tradução: {var_objErro}")
+        return var_strTexto
 
-def apply_dictionary(text, dictionary):
+def _func_AplicarDicionario(var_strTexto, var_dicDicionario):
     """Aplica o dicionário personalizado ao texto"""
-    for original, translation in dictionary.items():
-        text = text.replace(original, translation)
-    return text
+    for var_strOriginal, var_strTraducao in var_dicDicionario.items():
+        var_strTexto = var_strTexto.replace(var_strOriginal, var_strTraducao)
+    return var_strTexto
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
-def upload_file():
+def _func_UploadArquivo():
     if 'file' not in request.files:
         flash('Nenhum arquivo selecionado')
         return redirect(request.url)
     
-    file = request.files['file']
-    if file.filename == '':
+    var_objArquivo = request.files['file']
+    if var_objArquivo.filename == '':
         flash('Nenhum arquivo selecionado')
         return redirect(request.url)
     
-    if file and allowed_file(file.filename):
+    if var_objArquivo and _func_PermiteArquivo(var_objArquivo.filename):
         # Salvar arquivo temporariamente para calcular hash
-        temp_file_path = os.path.join(UPLOAD_FOLDER, f"temp_{secure_filename(file.filename)}")
-        file.save(temp_file_path)
+        var_strCaminhoTemporario = os.path.join(PASTA_UPLOADS, f"temp_{secure_filename(var_objArquivo.filename)}")
+        var_objArquivo.save(var_strCaminhoTemporario)
         
         # Calcular hash do arquivo
-        file_hash = get_file_hash(temp_file_path)
+        var_strHashArquivo = _func_ObterHashArquivo(var_strCaminhoTemporario)
         
         # Verificar se já existe um EPUB com o mesmo hash
-        existing_file_id = find_existing_epub_by_hash(file_hash)
+        var_strIdArquivoExistente = _func_EncontrarEpubPorHash(var_strHashArquivo)
         
-        if existing_file_id:
+        if var_strIdArquivoExistente:
             # Carregar informações do EPUB existente
-            content_file = os.path.join(EPUB_FOLDER, f"{existing_file_id}_content.json")
-            if os.path.exists(content_file):
-                with open(content_file, 'r', encoding='utf-8') as f:
-                    existing_content = json.load(f)
+            var_strCaminhoArquivoAtual = os.path.join(EPUB_PASTA, f"{var_strIdArquivoExistente}_content.json")
+            if os.path.exists(var_strCaminhoArquivoAtual):
+                with open(var_strCaminhoArquivoAtual, 'r', encoding='utf-8') as var_objArquivoLeitura:
+                    var_dicConteudoExistente = json.load(var_objArquivoLeitura)
                 
                 # Remover arquivo temporário
-                os.remove(temp_file_path)
+                os.remove(var_strCaminhoTemporario)
                 
                 # Retornar informações sobre o arquivo existente
                 return jsonify({
                     'duplicate': True,
-                    'existing_file_id': existing_file_id,
-                    'title': existing_content.get('title', 'EPUB Sem Título'),
-                    'chapters_count': len(existing_content.get('chapters', [])),
-                    'has_translation': any(chapter.get('translated_content') for chapter in existing_content.get('chapters', []))
+                    'existing_file_id': var_strIdArquivoExistente,
+                    'title': var_dicConteudoExistente.get('title', 'EPUB Sem Título'),
+                    'chapters_count': len(var_dicConteudoExistente.get('chapters', [])),
+                    'has_translation': any(chapter.get('translated_content') for chapter in var_dicConteudoExistente.get('chapters', []))
                 })
         
         # Se não é duplicata, continuar com o upload normal
-        filename = secure_filename(file.filename)
-        file_id = str(uuid.uuid4())
-        final_file_path = os.path.join(UPLOAD_FOLDER, f"{file_id}_{filename}")
+        var_strNomeArquivo = secure_filename(var_objArquivo.filename)
+        var_strIdArquivo = str(uuid.uuid4())
+        var_strCaminhoFinal = os.path.join(PASTA_UPLOADS, f"{var_strIdArquivo}_{var_strNomeArquivo}")
         
         # Mover arquivo temporário para localização final
-        os.rename(temp_file_path, final_file_path)
+        os.rename(var_strCaminhoTemporario, var_strCaminhoFinal)
         
         # Extrair conteúdo do EPUB
-        content = extract_epub_content(final_file_path)
+        var_dicConteudo = _func_ExtrairConteudoEpub(var_strCaminhoFinal)
         
-        if not content['chapters']:
+        if not var_dicConteudo['chapters']:
             flash('Não foi possível extrair conteúdo do EPUB')
             return redirect(url_for('index'))
         
         # Salvar informações do arquivo
-        epub_info = {
-            'id': file_id,
-            'filename': filename,
-            'title': content['title'] or filename,
+        var_dicInfoEpub = {
+            'id': var_strIdArquivo,
+            'filename': var_strNomeArquivo,
+            'title': var_dicConteudo['title'] or var_strNomeArquivo,
             'upload_date': datetime.now().isoformat(),
-            'chapters_count': len(content['chapters']),
-            'file_path': final_file_path,
-            'file_hash': file_hash
+            'chapters_count': len(var_dicConteudo['chapters']),
+            'path': var_strCaminhoFinal,
+            'file_hash': var_strHashArquivo
         }
         
         # Salvar conteúdo em arquivo temporário
-        content_file = os.path.join(EPUB_FOLDER, f"{file_id}_content.json")
-        with open(content_file, 'w', encoding='utf-8') as f:
-            json.dump(content, f, ensure_ascii=False, indent=2)
+        var_strCaminhoArquivoAtual = os.path.join(EPUB_PASTA, f"{var_strIdArquivo}_content.json")
+        with open(var_strCaminhoArquivoAtual, 'w', encoding='utf-8') as var_objArquivoEscrita:
+            json.dump(var_dicConteudo, var_objArquivoEscrita, ensure_ascii=False, indent=2)
         
         return jsonify({
             'duplicate': False,
-            'file_id': file_id,
-            'redirect_url': url_for('reader', file_id=file_id)
+            'file_id': var_strIdArquivo,
+            'redirect_url': url_for('reader', file_id=var_strIdArquivo)
         })
     
     flash('Tipo de arquivo não permitido')
     return redirect(url_for('index'))
 
 @app.route('/upload/force', methods=['POST'])
-def force_upload():
+def _func_ForcarUpload():
     """Força o upload de um arquivo mesmo sendo duplicado"""
     if 'file' not in request.files:
         return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'})
     
-    file = request.files['file']
-    if file.filename == '':
+    var_objArquivo = request.files['file']
+    if var_objArquivo.filename == '':
         return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'})
     
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file_id = str(uuid.uuid4())
-        file_path = os.path.join(UPLOAD_FOLDER, f"{file_id}_{filename}")
-        file.save(file_path)
+    if var_objArquivo and _func_PermiteArquivo(var_objArquivo.filename):
+        var_strNomeArquivo = secure_filename(var_objArquivo.filename)
+        var_strIdArquivo = str(uuid.uuid4())
+        var_strCaminho = os.path.join(PASTA_UPLOADS, f"{var_strIdArquivo}_{var_strNomeArquivo}")
+        var_objArquivo.save(var_strCaminho)
         
         # Extrair conteúdo do EPUB
-        content = extract_epub_content(file_path)
+        var_dicConteudo = _func_ExtrairConteudoEpub(var_strCaminho)
         
-        if not content['chapters']:
+        if not var_dicConteudo['chapters']:
             return jsonify({'success': False, 'error': 'Não foi possível extrair conteúdo do EPUB'})
         
         # Salvar informações do arquivo
-        epub_info = {
-            'id': file_id,
-            'filename': filename,
-            'title': content['title'] or filename,
+        var_dicInfoEpub = {
+            'id': var_strIdArquivo,
+            'filename': var_strNomeArquivo,
+            'title': var_dicConteudo['title'] or var_strNomeArquivo,
             'upload_date': datetime.now().isoformat(),
-            'chapters_count': len(content['chapters']),
-            'file_path': file_path
+            'chapters_count': len(var_dicConteudo['chapters']),
+            'path': var_strCaminho
         }
         
         # Salvar conteúdo em arquivo temporário
-        content_file = os.path.join(EPUB_FOLDER, f"{file_id}_content.json")
-        with open(content_file, 'w', encoding='utf-8') as f:
-            json.dump(content, f, ensure_ascii=False, indent=2)
+        var_strCaminhoArquivoAtual = os.path.join(EPUB_PASTA, f"{var_strIdArquivo}_content.json")
+        with open(var_strCaminhoArquivoAtual, 'w', encoding='utf-8') as var_objArquivoEscrita:
+            json.dump(var_dicConteudo, var_objArquivoEscrita, ensure_ascii=False, indent=2)
         
         return jsonify({
             'success': True,
-            'file_id': file_id,
-            'redirect_url': url_for('reader', file_id=file_id)
+            'file_id': var_strIdArquivo,
+            'redirect_url': url_for('reader', file_id=var_strIdArquivo)
         })
     
     return jsonify({'success': False, 'error': 'Tipo de arquivo não permitido'})
 
 @app.route('/reader/<file_id>')
 def reader(file_id):
-    content_file = os.path.join(EPUB_FOLDER, f"{file_id}_content.json")
+    var_strCaminhoArquivoAtual = os.path.join(EPUB_PASTA, f"{file_id}_content.json")
     
-    if not os.path.exists(content_file):
+    if not os.path.exists(var_strCaminhoArquivoAtual):
         flash('Arquivo não encontrado')
         return redirect(url_for('index'))
     
-    with open(content_file, 'r', encoding='utf-8') as f:
-        epub_data = json.load(f)
+    with open(var_strCaminhoArquivoAtual, 'r', encoding='utf-8') as var_objArquivoLeitura:
+        var_dicDadosEpub = json.load(var_objArquivoLeitura)
     
-    return render_template('reader.html', epub_data=epub_data, file_id=file_id)
+    return render_template('reader.html', epub_data=var_dicDadosEpub, file_id=file_id)
 
 @app.route('/translate', methods=['POST'])
-def translate():
-    data = request.get_json()
-    text = data.get('text', '')
-    source_lang = data.get('source_lang', 'auto')
-    target_lang = data.get('target_lang', 'pt')
-    chapter_index = data.get('chapter_index')
-    file_id = data.get('file_id')
+def _func_Traduzir():
+    var_dicDados = request.get_json()
+    var_strTexto = var_dicDados.get('text', '')
+    var_strIdiomaOrigem = var_dicDados.get('source_lang', 'auto')
+    var_strIdiomaDestino = var_dicDados.get('target_lang', 'pt')
+    var_intIndiceCapitulo = var_dicDados.get('chapter_index')
+    var_strIdArquivo = var_dicDados.get('file_id')
     
     # Carregar dicionário
-    dictionary = load_dictionary()
+    var_dicDicionario = _func_CarregarDicionario()
     
     # Aplicar dicionário primeiro
-    text_with_dict = apply_dictionary(text, dictionary)
+    var_strTextoComDicionario = _func_AplicarDicionario(var_strTexto, var_dicDicionario)
     
     # Traduzir
-    translated_text = translate_text(text_with_dict, source_lang, target_lang)
+    var_strTextoTraduzido = _func_TraduzirTexto(var_strTextoComDicionario, var_strIdiomaOrigem, var_strIdiomaDestino)
     
-    # Se foi fornecido file_id e chapter_index, salvar a tradução
-    if file_id and chapter_index is not None:
+    # Se foi fornecido var_strIdArquivo e var_intIndiceCapitulo, salvar a tradução
+    if var_strIdArquivo and var_intIndiceCapitulo is not None:
         try:
-            content_file = os.path.join(EPUB_FOLDER, f"{file_id}_content.json")
-            if os.path.exists(content_file):
-                with open(content_file, 'r', encoding='utf-8') as f:
-                    content = json.load(f)
+            var_strCaminhoArquivoAtual = os.path.join(EPUB_PASTA, f"{var_strIdArquivo}_content.json")
+            if os.path.exists(var_strCaminhoArquivoAtual):
+                with open(var_strCaminhoArquivoAtual, 'r', encoding='utf-8') as var_objArquivoLeitura:
+                    var_dicConteudo = json.load(var_objArquivoLeitura)
                 
-                if chapter_index < len(content['chapters']):
+                if var_intIndiceCapitulo < len(var_dicConteudo['chapters']):
                     # Salvar tradução no capítulo
-                    content['chapters'][chapter_index]['translated_content'] = translated_text
-                    content['chapters'][chapter_index]['original_content'] = content['chapters'][chapter_index]['content']
-                    content['chapters'][chapter_index]['content'] = translated_text
+                    var_dicConteudo['chapters'][var_intIndiceCapitulo]['translated_content'] = var_strTextoTraduzido
+                    var_dicConteudo['chapters'][var_intIndiceCapitulo]['original_content'] = var_dicConteudo['chapters'][var_intIndiceCapitulo]['content']
+                    var_dicConteudo['chapters'][var_intIndiceCapitulo]['content'] = var_strTextoTraduzido
                     
                     # Salvar arquivo atualizado
-                    with open(content_file, 'w', encoding='utf-8') as f:
-                        json.dump(content, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Erro ao salvar tradução: {e}")
+                    with open(var_strCaminhoArquivoAtual, 'w', encoding='utf-8') as var_objArquivoEscrita:
+                        json.dump(var_dicConteudo, var_objArquivoEscrita, ensure_ascii=False, indent=2)
+        except Exception as var_objErro:
+            print(f"Erro ao salvar tradução: {var_objErro}")
     
-    return jsonify({'translated_text': translated_text})
+    return jsonify({'translated_text': var_strTextoTraduzido})
 
 @app.route('/translate_all/<file_id>', methods=['POST'])
-def translate_all_chapters(file_id):
+def _func_TraduzirTodosCapitulos(file_id):
     """Traduz todos os capítulos de um EPUB usando o dicionário personalizado"""
-    content_file = os.path.join(EPUB_FOLDER, f"{file_id}_content.json")
+    var_strCaminhoArquivoAtual = os.path.join(EPUB_PASTA, f"{file_id}_content.json")
     
-    if not os.path.exists(content_file):
+    if not os.path.exists(var_strCaminhoArquivoAtual):
         return jsonify({'success': False, 'error': 'Arquivo não encontrado'})
     
     try:
-        with open(content_file, 'r', encoding='utf-8') as f:
-            content = json.load(f)
+        with open(var_strCaminhoArquivoAtual, 'r', encoding='utf-8') as var_objArquivoLeitura:
+            var_dicConteudo = json.load(var_objArquivoLeitura)
         
         # Carregar dicionário personalizado
-        dictionary = load_dictionary()
+        var_dicDicionario = _func_CarregarDicionario()
         
         # Traduzir todos os capítulos
-        translated_count = 0
-        for i, chapter in enumerate(content['chapters']):
+        var_intContadorTraduzidos = 0
+        for var_intIndice, var_dicCapitulo in enumerate(var_dicConteudo['chapters']):
             # Aplicar dicionário primeiro
-            text_with_dict = apply_dictionary(chapter['content'], dictionary)
+            var_strTextoComDicionario = _func_AplicarDicionario(var_dicCapitulo['content'], var_dicDicionario)
             
             # Traduzir o texto
-            translated_text = translate_text(text_with_dict, 'auto', 'pt')
+            var_strTextoTraduzido = _func_TraduzirTexto(var_strTextoComDicionario, 'auto', 'pt')
             
             # Salvar tradução no capítulo
-            chapter['translated_content'] = translated_text
-            chapter['original_content'] = chapter['content']
-            chapter['content'] = translated_text
+            var_dicCapitulo['translated_content'] = var_strTextoTraduzido
+            var_dicCapitulo['original_content'] = var_dicCapitulo['content']
+            var_dicCapitulo['content'] = var_strTextoTraduzido
             
-            translated_count += 1
+            var_intContadorTraduzidos += 1
         
         # Salvar conteúdo atualizado
-        with open(content_file, 'w', encoding='utf-8') as f:
-            json.dump(content, f, ensure_ascii=False, indent=2)
+        with open(var_strCaminhoArquivoAtual, 'w', encoding='utf-8') as var_objArquivoEscrita:
+            json.dump(var_dicConteudo, var_objArquivoEscrita, ensure_ascii=False, indent=2)
         
         return jsonify({
             'success': True,
-            'message': f'{translated_count} capítulos traduzidos com sucesso!',
-            'translated_count': translated_count
+            'message': f'{var_intContadorTraduzidos} capítulos traduzidos com sucesso!',
+            'translated_count': var_intContadorTraduzidos
         })
         
-    except Exception as e:
-        return jsonify({'success': False, 'error': f'Erro ao traduzir: {str(e)}'})
+    except Exception as var_objErro:
+        return jsonify({'success': False, 'error': f'Erro ao traduzir: {str(var_objErro)}'})
 
-@app.route('/dictionary')
-def dictionary_page():
-    dictionary = load_dictionary()
-    return render_template('dictionary.html', dictionary=dictionary)
+@app.route('/dicionario')
+def _func_PaginaDicionario():
+    var_dicDicionario = _func_CarregarDicionario()
+    return render_template('dicionario.html', dicionario=var_dicDicionario)
 
-@app.route('/dictionary/add', methods=['POST'])
-def add_dictionary_entry():
-    data = request.get_json()
-    original = data.get('original', '').strip()
+@app.route('/dicionario/add', methods=['POST'])
+def _func_AdicionarEntradaDicionario():
+    var_dicDados = request.get_json()
+    var_strOriginal = var_dicDados.get('original', '').strip()
     # Aceita tanto 'translated' quanto 'translation' para compatibilidade
-    translation = data.get('translated', data.get('translation', '')).strip()
+    var_strTraducao = var_dicDados.get('translated', var_dicDados.get('translation', '')).strip()
     
-    if original and translation:
-        dictionary = load_dictionary()
-        dictionary[original] = translation
-        save_dictionary(dictionary)
+    if var_strOriginal and var_strTraducao:
+        var_dicDicionario = _func_CarregarDicionario()
+        var_dicDicionario[var_strOriginal] = var_strTraducao
+        _func_SalvarDicionario(var_dicDicionario)
         return jsonify({'success': True})
     
     return jsonify({'success': False, 'error': 'Campos vazios'})
 
-@app.route('/dictionary/remove', methods=['POST'])
-def remove_dictionary_entry():
-    data = request.get_json()
-    original = data.get('original', '').strip()
+@app.route('/dicionario/remove', methods=['POST'])
+def _func_RemoverEntradaDicionario():
+    var_dicDados = request.get_json()
+    var_strOriginal = var_dicDados.get('original', '').strip()
     
-    if original:
-        dictionary = load_dictionary()
-        if original in dictionary:
-            del dictionary[original]
-            save_dictionary(dictionary)
+    if var_strOriginal:
+        var_dicDicionario = _func_CarregarDicionario()
+        if var_strOriginal in var_dicDicionario:
+            del var_dicDicionario[var_strOriginal]
+            _func_SalvarDicionario(var_dicDicionario)
             return jsonify({'success': True})
     
     return jsonify({'success': False, 'error': 'Entrada não encontrada'})
 
-@app.route('/dictionary/upload', methods=['POST'])
-def upload_dictionary():
+@app.route('/dicionario/upload', methods=['POST'])
+def _func_UploadDicionario():
     """Upload de dicionário personalizado"""
     if 'dictionary_file' not in request.files:
         return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'})
     
-    file = request.files['dictionary_file']
-    if file.filename == '':
+    var_objArquivo = request.files['dictionary_file']
+    if var_objArquivo.filename == '':
         return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'})
     
     # Verificar extensão do arquivo
-    if not file.filename.endswith('.json'):
+    if not var_objArquivo.filename.endswith('.json'):
         return jsonify({'success': False, 'error': 'Apenas arquivos JSON são permitidos'})
     
     try:
         # Ler e validar o arquivo JSON
-        content = file.read().decode('utf-8')
-        new_dictionary = json.loads(content)
+        var_strConteudo = var_objArquivo.read().decode('utf-8')
+        var_dicNovoDicionario = json.loads(var_strConteudo)
         
         # Validar se é um dicionário válido
-        if not isinstance(new_dictionary, dict):
+        if not isinstance(var_dicNovoDicionario, dict):
             return jsonify({'success': False, 'error': 'Formato de arquivo inválido'})
         
         # Carregar dicionário atual e mesclar
-        current_dictionary = load_dictionary()
-        current_dictionary.update(new_dictionary)
+        var_dicDicionarioAtual = _func_CarregarDicionario()
+        var_dicDicionarioAtual.update(var_dicNovoDicionario)
         
         # Salvar dicionário mesclado
-        save_dictionary(current_dictionary)
+        _func_SalvarDicionario(var_dicDicionarioAtual)
         
         return jsonify({
             'success': True, 
-            'message': f'Dicionário carregado com sucesso! {len(new_dictionary)} entradas adicionadas.',
-            'entries_count': len(current_dictionary)
+            'message': f'Dicionário carregado com sucesso! {len(var_dicNovoDicionario)} entradas adicionadas.',
+            'entries_count': len(var_dicDicionarioAtual)
         })
         
     except json.JSONDecodeError:
         return jsonify({'success': False, 'error': 'Arquivo JSON inválido'})
-    except Exception as e:
-        return jsonify({'success': False, 'error': f'Erro ao processar arquivo: {str(e)}'})
+    except Exception as var_objErro:
+        return jsonify({'success': False, 'error': f'Erro ao processar arquivo: {str(var_objErro)}'})
 
-@app.route('/dictionary/download')
-def download_dictionary():
+@app.route('/dicionario/download')
+def _func_DownloadDicionario():
     """Download do dicionário personalizado"""
     try:
-        dictionary = load_dictionary()
+        var_dicDicionario = _func_CarregarDicionario()
         
         # Criar arquivo temporário
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.json', mode='w', encoding='utf-8')
-        json.dump(dictionary, temp_file, ensure_ascii=False, indent=2)
-        temp_file.close()
+        var_objArquivoTemporario = tempfile.NamedTemporaryFile(delete=False, suffix='.json', mode='w', encoding='utf-8')
+        json.dump(var_dicDicionario, var_objArquivoTemporario, ensure_ascii=False, indent=2)
+        var_objArquivoTemporario.close()
         
         return send_file(
-            temp_file.name,
+            var_objArquivoTemporario.name,
             as_attachment=True,
             download_name='dicionario_personalizado.json',
             mimetype='application/json'
         )
         
-    except Exception as e:
-        return jsonify({'success': False, 'error': f'Erro ao gerar arquivo: {str(e)}'})
+    except Exception as var_objErro:
+        return jsonify({'success': False, 'error': f'Erro ao gerar arquivo: {str(var_objErro)}'})
 
 @app.route('/download/<file_id>')
-def download_epub(file_id):
-    content_file = os.path.join(EPUB_FOLDER, f"{file_id}_content.json")
+def _func_DownloadEpub(file_id):
+    var_strCaminhoArquivoAtual = os.path.join(EPUB_PASTA, f"{file_id}_content.json")
     
-    if not os.path.exists(content_file):
+    if not os.path.exists(var_strCaminhoArquivoAtual):
         flash('Arquivo não encontrado')
         return redirect(url_for('index'))
     
-    with open(content_file, 'r', encoding='utf-8') as f:
-        content = json.load(f)
+    with open(var_strCaminhoArquivoAtual, 'r', encoding='utf-8') as var_objArquivoLeitura:
+        var_dicConteudo = json.load(var_objArquivoLeitura)
     
     # Verificar se já existe tradução
-    has_translation = any(chapter.get('translated_content') for chapter in content['chapters'])
+    var_boolTemTraducao = any(chapter.get('translated_content') for chapter in var_dicConteudo['chapters'])
     
-    if has_translation:
+    if var_boolTemTraducao:
         # Usar traduções existentes
-        translated_chapters = []
-        for chapter in content['chapters']:
-            translated_chapter = {
-                'id': chapter['id'],
-                'title': chapter['title'],
-                'content': chapter.get('translated_content', chapter['content']),
-                'original_content': chapter.get('original_content', chapter['content'])
+        var_listCapitulosTraduzidos = []
+        for var_dicCapitulo in var_dicConteudo['chapters']:
+            var_dicCapituloTraduzido = {
+                'id': var_dicCapitulo['id'],
+                'title': var_dicCapitulo['title'],
+                'content': var_dicCapitulo.get('translated_content', var_dicCapitulo['content']),
+                'original_content': var_dicCapitulo.get('original_content', var_dicCapitulo['content'])
             }
-            translated_chapters.append(translated_chapter)
+            var_listCapitulosTraduzidos.append(var_dicCapituloTraduzido)
     else:
         # Traduzir todos os capítulos usando o dicionário personalizado
-        dictionary = load_dictionary()
-        translated_chapters = []
-        for i, chapter in enumerate(content['chapters']):
+        var_dicDicionario = _func_CarregarDicionario()
+        var_listCapitulosTraduzidos = []
+        for var_intIndice, var_dicCapitulo in enumerate(var_dicConteudo['chapters']):
             # Aplicar dicionário primeiro
-            text_with_dict = apply_dictionary(chapter['content'], dictionary)
+            var_strTextoComDicionario = _func_AplicarDicionario(var_dicCapitulo['content'], var_dicDicionario)
             
             # Traduzir o texto
-            translated_text = translate_text(text_with_dict, 'auto', 'pt')
+            var_strTextoTraduzido = _func_TraduzirTexto(var_strTextoComDicionario, 'auto', 'pt')
             
             # Criar capítulo traduzido
-            translated_chapter = {
-                'id': chapter['id'],
-                'title': chapter['title'],
-                'content': translated_text,
-                'original_content': chapter['content']
+            var_dicCapituloTraduzido = {
+                'id': var_dicCapitulo['id'],
+                'title': var_dicCapitulo['title'],
+                'content': var_strTextoTraduzido,
+                'original_content': var_dicCapitulo['content']
             }
-            translated_chapters.append(translated_chapter)
+            var_listCapitulosTraduzidos.append(var_dicCapituloTraduzido)
     
     # Criar um EPUB com o conteúdo traduzido
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.epub')
-    temp_file.close()
+    var_objArquivoTemporario = tempfile.NamedTemporaryFile(delete=False, suffix='.epub')
+    var_objArquivoTemporario.close()
     
-    with zipfile.ZipFile(temp_file.name, 'w') as epub:
+    with zipfile.ZipFile(var_objArquivoTemporario.name, 'w') as var_objEpub:
         # Adicionar arquivos básicos do EPUB
-        epub.writestr('META-INF/container.xml', '''<?xml version="1.0" encoding="UTF-8"?>
+        var_objEpub.writestr('META-INF/container.xml', '''<?xml version="1.0" encoding="UTF-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
     <rootfiles>
         <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
@@ -664,10 +664,10 @@ def download_epub(file_id):
 </container>''')
         
         # Criar content.opf
-        content_opf = f'''<?xml version="1.0" encoding="UTF-8"?>
+        var_strContentOPF = f'''<?xml version="1.0" encoding="UTF-8"?>
 <package version="3.0" xmlns="http://www.idpf.org/2007/opf">
     <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-        <dc:title>{content.get('title', 'EPUB Traduzido')} (Traduzido)</dc:title>
+        <dc:title>{var_dicConteudo.get('title', 'EPUB Traduzido')} (Traduzido)</dc:title>
         <dc:language>pt</dc:language>
         <dc:creator>EPUB Translator</dc:creator>
         <dc:description>EPUB traduzido automaticamente com dicionário personalizado</dc:description>
@@ -677,23 +677,23 @@ def download_epub(file_id):
         <item id="css" href="style.css" media-type="text/css"/>
 '''
         
-        for i, chapter in enumerate(translated_chapters):
-            content_opf += f'        <item id="chapter{i}" href="chapter{i}.html" media-type="application/xhtml+xml"/>\n'
+        for var_intIndice, var_dicCapitulo in enumerate(var_listCapitulosTraduzidos):
+            var_strContentOPF += f'        <item id="chapter{var_intIndice}" href="chapter{var_intIndice}.html" media-type="application/xhtml+xml"/>\n'
         
-        content_opf += '''    </manifest>
+        var_strContentOPF += '''    </manifest>
     <spine toc="ncx">
 '''
         
-        for i in range(len(translated_chapters)):
-            content_opf += f'        <itemref idref="chapter{i}"/>\n'
+        for var_intIndice in range(len(var_listCapitulosTraduzidos)):
+            var_strContentOPF += f'        <itemref idref="chapter{var_intIndice}"/>\n'
         
-        content_opf += '''    </spine>
+        var_strContentOPF += '''    </spine>
 </package>'''
         
-        epub.writestr('OEBPS/content.opf', content_opf)
+        var_objEpub.writestr('OEBPS/content.opf', var_strContentOPF)
         
         # Adicionar CSS
-        epub.writestr('OEBPS/style.css', '''body { 
+        var_objEpub.writestr('OEBPS/style.css', '''body { 
     font-family: "Times New Roman", serif; 
     margin: 2em; 
     line-height: 1.6; 
@@ -715,30 +715,30 @@ p {
 }''')
         
         # Adicionar capítulos traduzidos
-        for i, chapter in enumerate(translated_chapters):
+        for var_intIndice, var_dicCapitulo in enumerate(var_listCapitulosTraduzidos):
             # Formatar o conteúdo traduzido para HTML
-            formatted_content = chapter['content'].replace('\n\n', '</p><p>').replace('\n', ' ')
-            if not formatted_content.startswith('<p>'):
-                formatted_content = f'<p>{formatted_content}</p>'
+            var_strConteudoFormatado = var_dicCapitulo['content'].replace('\n\n', '</p><p>').replace('\n', ' ')
+            if not var_strConteudoFormatado.startswith('<p>'):
+                var_strConteudoFormatado = f'<p>{var_strConteudoFormatado}</p>'
             
-            chapter_html = f'''<?xml version="1.0" encoding="UTF-8"?>
+            var_strHTMLCapitulo = f'''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-    <title>{chapter['title']}</title>
+    <title>{var_dicCapitulo['title']}</title>
     <link rel="stylesheet" type="text/css" href="style.css"/>
 </head>
 <body>
     <div class="content">
-        <h1>{chapter['title']}</h1>
-        {formatted_content}
+        <h1>{var_dicCapitulo['title']}</h1>
+        {var_strConteudoFormatado}
     </div>
 </body>
 </html>'''
-            epub.writestr(f'OEBPS/chapter{i}.html', chapter_html)
+            var_objEpub.writestr(f'OEBPS/chapter{var_intIndice}.html', var_strHTMLCapitulo)
         
         # Adicionar arquivo de navegação (toc.ncx)
-        toc_ncx = f'''<?xml version="1.0" encoding="UTF-8"?>
+        var_strTocNCX = f'''<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
     <head>
         <meta name="dtb:uid" content="epub-translator-{file_id}"/>
@@ -747,26 +747,26 @@ p {
         <meta name="dtb:maxPageNumber" content="0"/>
     </head>
     <docTitle>
-        <text>{content.get('title', 'EPUB Traduzido')}</text>
+        <text>{var_dicConteudo.get('title', 'EPUB Traduzido')}</text>
     </docTitle>
     <navMap>
 '''
         
-        for i, chapter in enumerate(translated_chapters):
-            toc_ncx += f'''        <navPoint id="chapter{i}" playOrder="{i+1}">
+        for var_intIndice, var_dicCapitulo in enumerate(var_listCapitulosTraduzidos):
+            var_strTocNCX += f'''        <navPoint id="chapter{var_intIndice}" playOrder="{var_intIndice+1}">
             <navLabel>
-                <text>{chapter['title']}</text>
+                <text>{var_dicCapitulo['title']}</text>
             </navLabel>
-            <content src="chapter{i}.html"/>
+            <content src="chapter{var_intIndice}.html"/>
         </navPoint>
 '''
         
-        toc_ncx += '''    </navMap>
+        var_strTocNCX += '''    </navMap>
 </ncx>'''
         
-        epub.writestr('OEBPS/toc.ncx', toc_ncx)
+        var_objEpub.writestr('OEBPS/toc.ncx', var_strTocNCX)
     
-    return send_file(temp_file.name, as_attachment=True, download_name=f"traduzido_{content.get('title', 'epub')}.epub")
+    return send_file(var_objArquivoTemporario.name, as_attachment=True, download_name=f"traduzido_{var_dicConteudo.get('title', 'epub')}.epub")
 
 if __name__ == '__main__':
     app.run(debug=True) 
