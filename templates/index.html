@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+
+{% block title %}EPUB Translator - Início{% endblock %}
+
+{% block content %}
+<div class="mui-container">
+    <!-- Hero Section -->
+    <section class="mui-hero">
+        <div class="mui-hero__content">
+            <h1 class="mui-hero__title">
+                <span class="mui-icon mui-icon--book"></span>
+                EPUB Translator
+            </h1>
+            <p class="mui-hero__subtitle">
+                Traduza e leia seus livros EPUB com facilidade. Interface moderna e tradução automática.
+            </p>
+        </div>
+    </section>
+
+    <!-- Upload Section -->
+    <section class="mui-section">
+        <div class="mui-card">
+            <div class="mui-card__header">
+                <h2 class="mui-card__title">
+                    <span class="mui-icon mui-icon--upload"></span>
+                    Upload do EPUB
+                </h2>
+                <p class="mui-card__subtitle">
+                    Faça upload do seu arquivo EPUB para começar a tradução
+                </p>
+            </div>
+            <div class="mui-card__content">
+                <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data" class="mui-upload-form">
+                    <div class="mui-upload-area" id="uploadArea">
+                        <span class="mui-icon mui-icon--upload"></span>
+                        <p class="mui-upload-text">
+                            <strong>Clique para selecionar</strong> ou arraste o arquivo EPUB aqui
+                        </p>
+                        <p class="mui-upload-hint">Formatos suportados: .epub</p>
+                        <input type="file" name="file" id="fileInput" accept=".epub" class="mui-file-input" required>
+                    </div>
+                    <div class="mui-form-actions">
+                        <button type="submit" class="mui-button mui-button--contained mui-button--primary">
+                            <span class="mui-icon mui-icon--upload"></span>
+                            Fazer Upload
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="mui-section">
+        <h2 class="mui-section__title">Recursos Principais</h2>
+        <div class="mui-grid">
+            <div class="mui-grid__item">
+                <div class="mui-feature-card">
+                    <div class="mui-feature-card__icon">
+                        <span class="mui-icon mui-icon--translate"></span>
+                    </div>
+                    <h3 class="mui-feature-card__title">Tradução Automática</h3>
+                    <p class="mui-feature-card__description">
+                        Tradução automática usando Google Translate e Deep Translator
+                    </p>
+                </div>
+            </div>
+            <div class="mui-grid__item">
+                <div class="mui-feature-card">
+                    <div class="mui-feature-card__icon">
+                        <span class="mui-icon mui-icon--edit"></span>
+                    </div>
+                    <h3 class="mui-feature-card__title">Edição Manual</h3>
+                    <p class="mui-feature-card__description">
+                        Edite as traduções manualmente para melhor precisão
+                    </p>
+                </div>
+            </div>
+            <div class="mui-grid__item">
+                <div class="mui-feature-card">
+                    <div class="mui-feature-card__icon">
+                        <span class="mui-icon mui-icon--search"></span>
+                    </div>
+                    <h3 class="mui-feature-card__title">Dicionário Personalizado</h3>
+                    <p class="mui-feature-card__description">
+                        Crie seu próprio dicionário de traduções personalizadas
+                    </p>
+                </div>
+            </div>
+            <div class="mui-grid__item">
+                <div class="mui-feature-card">
+                    <div class="mui-feature-card__icon">
+                        <span class="mui-icon mui-icon--download"></span>
+                    </div>
+                    <h3 class="mui-feature-card__title">Download EPUB</h3>
+                    <p class="mui-feature-card__description">
+                        Baixe o EPUB traduzido para ler offline
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How to Use Section -->
+    <section class="mui-section">
+        <div class="mui-card">
+            <div class="mui-card__header">
+                <h2 class="mui-card__title">
+                    <span class="mui-icon mui-icon--info"></span>
+                    Como Usar
+                </h2>
+            </div>
+            <div class="mui-card__content">
+                <div class="mui-steps">
+                    <div class="mui-step">
+                        <div class="mui-step__number">1</div>
+                        <div class="mui-step__content">
+                            <h3 class="mui-step__title">Upload do Arquivo</h3>
+                            <p class="mui-step__description">
+                                Faça upload do seu arquivo EPUB usando o formulário acima
+                            </p>
+                        </div>
+                    </div>
+                    <div class="mui-step">
+                        <div class="mui-step__number">2</div>
+                        <div class="mui-step__content">
+                            <h3 class="mui-step__title">Tradução Automática</h3>
+                            <p class="mui-step__description">
+                                O sistema traduzirá automaticamente o conteúdo do EPUB
+                            </p>
+                        </div>
+                    </div>
+                    <div class="mui-step">
+                        <div class="mui-step__number">3</div>
+                        <div class="mui-step__content">
+                            <h3 class="mui-step__title">Edição e Revisão</h3>
+                            <p class="mui-step__description">
+                                Revise e edite as traduções conforme necessário
+                            </p>
+                        </div>
+                    </div>
+                    <div class="mui-step">
+                        <div class="mui-step__number">4</div>
+                        <div class="mui-step__content">
+                            <h3 class="mui-step__title">Download</h3>
+                            <p class="mui-step__description">
+                                Baixe o EPUB traduzido para ler em qualquer dispositivo
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section class="mui-section">
+        <div class="mui-cta">
+            <h2 class="mui-cta__title">Pronto para começar?</h2>
+            <p class="mui-cta__description">
+                Faça upload do seu primeiro EPUB e experimente a tradução automática
+            </p>
+            <a href="#upload" class="mui-button mui-button--contained mui-button--primary mui-button--large">
+                <span class="mui-icon mui-icon--upload"></span>
+                Começar Agora
+            </a>
+        </div>
+    </section>
+</div>
+
+<!-- Duplicate EPUB Modal -->
+<div class="mui-modal" id="duplicateModal">
+    <div class="mui-modal__overlay" id="duplicateModalOverlay"></div>
+    <div class="mui-modal__content">
+        <div class="mui-modal__header">
+            <h2 class="mui-modal__title">
+                <span class="mui-icon mui-icon--warning"></span>
+                EPUB Já Existe
+            </h2>
+            <button class="mui-modal__close" id="closeDuplicateModal">
+                <span class="mui-icon mui-icon--close"></span>
+            </button>
+        </div>
+        <div class="mui-modal__body">
+            <div class="mui-duplicate-info">
+                <p class="mui-duplicate-text">
+                    Este EPUB já foi carregado anteriormente. O que você gostaria de fazer?
+                </p>
+                <div class="mui-duplicate-details">
+                    <div class="mui-duplicate-item">
+                        <span class="mui-icon mui-icon--book"></span>
+                        <div>
+                            <strong id="duplicateTitle">Título do EPUB</strong>
+                            <p id="duplicateChapters">Capítulos: 0</p>
+                        </div>
+                    </div>
+                    <div class="mui-duplicate-status" id="duplicateStatus">
+                        <span class="mui-icon mui-icon--translate"></span>
+                        <span>Status da tradução</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mui-modal__footer">
+            <button class="mui-button mui-button--outlined" id="useExistingBtn">
+                <span class="mui-icon mui-icon--visibility"></span>
+                Usar Existente
+            </button>
+            <button class="mui-button mui-button--contained mui-button--primary" id="uploadNewBtn">
+                <span class="mui-icon mui-icon--upload"></span>
+                Fazer Upload Novo
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const uploadForm = document.querySelector('.mui-upload-form');
+    const duplicateModal = document.getElementById('duplicateModal');
+    const closeDuplicateModal = document.getElementById('closeDuplicateModal');
+    const duplicateModalOverlay = document.getElementById('duplicateModalOverlay');
+    const useExistingBtn = document.getElementById('useExistingBtn');
+    const uploadNewBtn = document.getElementById('uploadNewBtn');
+    
+    let currentFile = null;
+    let duplicateData = null;
+    
+    // Drag and drop functionality
+    uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadArea.classList.add('mui-upload-area--dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('mui-upload-area--dragover');
+    });
+    
+    uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('mui-upload-area--dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            handleFileSelect();
+        }
+    });
+    
+    // Click to select file
+    uploadArea.addEventListener('click', function() {
+        fileInput.click();
+    });
+    
+    // File input change
+    fileInput.addEventListener('change', function() {
+        handleFileSelect();
+    });
+    
+    function handleFileSelect() {
+        if (fileInput.files.length > 0) {
+            const fileName = fileInput.files[0].name;
+            const uploadText = uploadArea.querySelector('.mui-upload-text');
+            uploadText.innerHTML = `<strong>Arquivo selecionado:</strong> ${fileName}`;
+            currentFile = fileInput.files[0];
+        }
+    }
+    
+    // Form submission
+    uploadForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!currentFile) {
+            showNotification('Por favor, selecione um arquivo.', 'error');
+            return;
+        }
+        
+        // Show loading state
+        const submitBtn = uploadForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="mui-icon mui-icon--upload"></span> Verificando...';
+        
+        // Create FormData
+        const formData = new FormData();
+        formData.append('file', currentFile);
+        
+        // Send request
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.duplicate) {
+                // Show duplicate modal
+                duplicateData = data;
+                showDuplicateModal(data);
+            } else {
+                // Redirect to reader
+                window.location.href = data.redirect_url;
+            }
+        })
+        .catch(error => {
+            showNotification('Erro ao fazer upload: ' + error.message, 'error');
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        });
+    });
+    
+    function showDuplicateModal(data) {
+        // Update modal content
+        document.getElementById('duplicateTitle').textContent = data.title;
+        document.getElementById('duplicateChapters').textContent = `Capítulos: ${data.chapters_count}`;
+        
+        const statusElement = document.getElementById('duplicateStatus');
+        if (data.has_translation) {
+            statusElement.className = 'mui-duplicate-status translated';
+            statusElement.innerHTML = '<span class="mui-icon mui-icon--check"></span><span>Já traduzido</span>';
+        } else {
+            statusElement.className = 'mui-duplicate-status not-translated';
+            statusElement.innerHTML = '<span class="mui-icon mui-icon--translate"></span><span>Não traduzido</span>';
+        }
+        
+        // Show modal
+        duplicateModal.classList.add('mui-modal--open');
+    }
+    
+    // Modal event listeners
+    closeDuplicateModal.addEventListener('click', closeModal);
+    duplicateModalOverlay.addEventListener('click', closeModal);
+    
+    useExistingBtn.addEventListener('click', function() {
+        if (duplicateData) {
+            window.location.href = `/reader/${duplicateData.existing_file_id}`;
+        }
+    });
+    
+    uploadNewBtn.addEventListener('click', function() {
+        if (currentFile) {
+            // Force upload
+            const formData = new FormData();
+            formData.append('file', currentFile);
+            
+            fetch('/upload/force', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    showNotification('Erro ao fazer upload: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Erro ao fazer upload: ' + error.message, 'error');
+            });
+        }
+        closeModal();
+    });
+    
+    function closeModal() {
+        duplicateModal.classList.remove('mui-modal--open');
+        // Reset form
+        uploadForm.reset();
+        currentFile = null;
+        duplicateData = null;
+        const uploadText = uploadArea.querySelector('.mui-upload-text');
+        uploadText.innerHTML = '<strong>Clique para selecionar</strong> ou arraste o arquivo EPUB aqui';
+    }
+    
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.className = `mui-notification mui-notification--${type}`;
+        notification.innerHTML = `
+            <span class="mui-icon mui-icon--${type === 'success' ? 'check' : 'error'}"></span>
+            <span class="mui-notification__message">${message}</span>
+        `;
+        document.body.appendChild(notification);
+        setTimeout(() => {
+            notification.classList.add('mui-notification--show');
+        }, 100);
+        setTimeout(() => {
+            notification.classList.remove('mui-notification--show');
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 300);
+        }, 3000);
+    }
+});
+</script>
+{% endblock %} 

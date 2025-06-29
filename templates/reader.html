@@ -1,0 +1,576 @@
+{% extends "base.html" %}
+
+{% block title %}Leitor - {{ epub_data.title }}{% endblock %}
+
+{% block content %}
+<div class="mui-container">
+    <!-- Header -->
+    <div class="mui-reader-header">
+        <div class="mui-reader-header__content">
+            <h1 class="mui-reader-header__title">
+                <span class="mui-icon mui-icon--book"></span>
+                {{ epub_data.title or 'EPUB Sem Título' }}
+                {% if epub_data.chapters and epub_data.chapters[0].translated_content %}
+                <span class="mui-translation-badge">
+                    <span class="mui-icon mui-icon--translate"></span>
+                    Traduzido
+                </span>
+                {% endif %}
+            </h1>
+            <div class="mui-reader-header__actions">
+                <button id="translateAllBtn" class="mui-button mui-button--contained mui-button--primary">
+                    <span class="mui-icon mui-icon--translate"></span>
+                    Traduzir Tudo
+                </button>
+                <a href="{{ url_for('download_epub', file_id=file_id) }}" class="mui-button mui-button--contained mui-button--primary">
+                    <span class="mui-icon mui-icon--download"></span>
+                    Download EPUB
+                </a>
+                <a href="{{ url_for('index') }}" class="mui-button mui-button--outlined">
+                    <span class="mui-icon mui-icon--home"></span>
+                    Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="mui-reader-controls">
+        <div class="mui-reader-controls__content">
+            <div class="mui-reader-controls__left">
+                <button id="prevChapter" class="mui-button mui-button--outlined" disabled>
+                    <span class="mui-icon mui-icon--navigate_before"></span>
+                    Anterior
+                </button>
+                <span class="mui-reader-controls__info">
+                    Capítulo <span id="currentChapter">1</span> de <span id="totalChapters">{{ epub_data.chapters|length }}</span>
+                </span>
+                <button id="nextChapter" class="mui-button mui-button--outlined">
+                    <span class="mui-icon mui-icon--navigate_next"></span>
+                    Próximo
+                </button>
+            </div>
+            <div class="mui-reader-controls__right">
+                <button id="translateBtn" class="mui-button mui-button--outlined">
+                    <span class="mui-icon mui-icon--translate"></span>
+                    Traduzir Capítulo
+                </button>
+                <button id="toggleOriginalBtn" class="mui-button mui-button--outlined" style="display:none;">
+                    <span class="mui-icon mui-icon--visibility"></span>
+                    Ver original
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reader Content -->
+    <div class="mui-reader-content">
+        <div class="mui-reader-panel">
+            <!-- Chapter Navigation -->
+            <div class="mui-reader-sidebar">
+                <div class="mui-reader-sidebar__header">
+                    <h3 class="mui-reader-sidebar__title">
+                        <span class="mui-icon mui-icon--list"></span>
+                        Capítulos
+                    </h3>
+                </div>
+                <div class="mui-reader-sidebar__content">
+                    <div class="mui-chapter-list" id="chapterList">
+                        {% for chapter in epub_data.chapters %}
+                        <button class="mui-chapter-item" data-chapter="{{ loop.index0 }}">
+                            <span class="mui-chapter-item__number">{{ loop.index }}</span>
+                            <span class="mui-chapter-item__title">{{ chapter.title }}</span>
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="mui-reader-main">
+                <div class="mui-reader-text" id="readerText">
+                    {% if epub_data.chapters %}
+                    <div class="mui-chapter-content" data-chapter="0">
+                        <h2 class="mui-chapter-title">{{ epub_data.chapters[0].title }}</h2>
+                        <div class="mui-chapter-text">
+                            {{ epub_data.chapters[0].content|replace('\n', '<br>')|safe }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="mui-empty-state">
+                        <span class="mui-icon mui-icon--book"></span>
+                        <h3>Nenhum conteúdo encontrado</h3>
+                        <p>Este EPUB não contém capítulos para exibir.</p>
+                    </div>
+                    {% endif %}
+                </div>
+                <!-- Loading overlay -->
+                <div class="mui-loading-overlay" id="loadingOverlay">
+                    <div class="mui-loading-content">
+                        <div class="mui-loading-spinner"></div>
+                        <p class="mui-loading-text">Traduzindo capítulo...</p>
+                    </div>
+                </div>
+            </div>
+                    </div>
+                </div>
+
+    <!-- Translation Progress Modal -->
+    <div class="mui-modal" id="progressModal">
+        <div class="mui-modal__overlay" id="progressModalOverlay"></div>
+        <div class="mui-modal__content">
+            <div class="mui-modal__header">
+                <h2 class="mui-modal__title">
+                    <span class="mui-icon mui-icon--translate"></span>
+                    Traduzindo EPUB
+                </h2>
+            </div>
+            <div class="mui-modal__body">
+                <div class="mui-progress-container">
+                    <div class="mui-progress-info">
+                        <p class="mui-progress-text" id="progressText">Iniciando tradução...</p>
+                        <p class="mui-progress-details" id="progressDetails">Capítulo 1 de {{ epub_data.chapters|length }}</p>
+                    </div>
+                    <div class="mui-progress-bar">
+                        <div class="mui-progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="mui-progress-percentage" id="progressPercentage">0%</div>
+                </div>
+            </div>
+            <div class="mui-modal__footer" id="progressFooter">
+                <button class="mui-button mui-button--outlined" id="cancelProgress" style="display:none;">
+                    Cancelar
+                </button>
+                <button class="mui-button mui-button--contained mui-button--primary" id="downloadTranslatedBtn" style="display:none;">
+                    <span class="mui-icon mui-icon--download"></span>
+                    Download EPUB Traduzido
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Translation Modal -->
+    <div class="mui-modal" id="translationModal">
+        <div class="mui-modal__overlay" id="modalOverlay"></div>
+        <div class="mui-modal__content">
+            <div class="mui-modal__header">
+                <h2 class="mui-modal__title">
+                    <span class="mui-icon mui-icon--translate"></span>
+                    Tradução
+                </h2>
+                <button class="mui-modal__close" id="closeModal">
+                    <span class="mui-icon mui-icon--close"></span>
+                </button>
+            </div>
+            <div class="mui-modal__body">
+                <div class="mui-translation-controls">
+                    <div class="mui-form-group">
+                        <label class="mui-form-label">Idioma de Origem:</label>
+                        <select id="sourceLang" class="mui-select">
+                            <option value="auto">Detectar Automaticamente</option>
+                            <option value="en">Inglês</option>
+                            <option value="es">Espanhol</option>
+                            <option value="fr">Francês</option>
+                            <option value="de">Alemão</option>
+                            <option value="it">Italiano</option>
+                            <option value="pt">Português</option>
+                        </select>
+                    </div>
+                    <div class="mui-form-group">
+                        <label class="mui-form-label">Idioma de Destino:</label>
+                        <select id="targetLang" class="mui-select">
+                            <option value="pt">Português</option>
+                            <option value="en">Inglês</option>
+                            <option value="es">Espanhol</option>
+                            <option value="fr">Francês</option>
+                            <option value="de">Alemão</option>
+                            <option value="it">Italiano</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mui-translation-content">
+                    <div class="mui-translation-panel">
+                        <h3 class="mui-translation-panel__title">Texto Original</h3>
+                        <div class="mui-translation-text" id="originalText"></div>
+            </div>
+                    <div class="mui-translation-panel">
+                        <h3 class="mui-translation-panel__title">Tradução</h3>
+                        <div class="mui-translation-text" id="translatedText" contenteditable="true"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="mui-modal__footer">
+                <button class="mui-button mui-button--outlined" id="cancelTranslation">
+                    Cancelar
+                    </button>
+                <button class="mui-button mui-button--contained mui-button--primary" id="saveTranslation">
+                    <span class="mui-icon mui-icon--save"></span>
+                    Salvar Tradução
+                    </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de tradução rápida para dicionário -->
+    <div class="mui-quick-dict-bar" id="quickDictBar" style="display:none;">
+        <form id="quickDictForm" class="mui-quick-dict-form" autocomplete="off">
+            <div class="mui-quick-dict-selected">
+                <label>Texto selecionado:</label>
+                <input type="text" id="quickDictOriginal" readonly>
+            </div>
+            <div class="mui-quick-dict-translation">
+                <label>Tradução personalizada:</label>
+                <input type="text" id="quickDictTranslation" required placeholder="Digite a tradução...">
+        </div>
+            <button type="submit" class="mui-button mui-button--contained mui-button--primary">
+                <span class="mui-icon mui-icon--add"></span> Adicionar ao Dicionário
+            </button>
+            <button type="button" class="mui-button mui-button--outlined" id="quickDictCancel">Cancelar</button>
+        </form>
+    </div>
+            </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const chapters = {{ epub_data.chapters|tojson }};
+let currentChapterIndex = 0;
+let showOriginal = false;
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateChapterDisplay();
+    setupEventListeners();
+    setupQuickDictBar();
+    // Listener do botão ver original
+    document.getElementById('toggleOriginalBtn').addEventListener('click', function() {
+        showOriginal = !showOriginal;
+        updateChapterDisplay();
+    });
+});
+
+function setupEventListeners() {
+    document.getElementById('prevChapter').addEventListener('click', () => {
+        if (currentChapterIndex > 0) {
+            currentChapterIndex--;
+            updateChapterDisplay();
+        }
+    });
+    document.getElementById('nextChapter').addEventListener('click', () => {
+        if (currentChapterIndex < chapters.length - 1) {
+            currentChapterIndex++;
+            updateChapterDisplay();
+        }
+    });
+    document.querySelectorAll('.mui-chapter-item').forEach((item, index) => {
+        item.addEventListener('click', () => {
+            currentChapterIndex = index;
+            updateChapterDisplay();
+        });
+    });
+    document.getElementById('translateAllBtn').addEventListener('click', translateAllChapters);
+    document.getElementById('translateBtn').addEventListener('click', translateCurrentChapter);
+}
+
+function updateChapterDisplay() {
+    const chapter = chapters[currentChapterIndex];
+    const toggleOriginalBtn = document.getElementById('toggleOriginalBtn');
+    
+    // Determinar qual conteúdo mostrar
+    let contentToShow = chapter.content;
+    let buttonText = '';
+    
+    if (chapter.translated_content && chapter.original_content) {
+        // Se tem ambos original e traduzido
+        if (showOriginal) {
+            contentToShow = chapter.original_content;
+            buttonText = '<span class="mui-icon mui-icon--translate"></span> Ver Tradução';
+        } else {
+            contentToShow = chapter.translated_content;
+            buttonText = '<span class="mui-icon mui-icon--visibility"></span> Ver Original';
+        }
+        toggleOriginalBtn.style.display = 'inline-flex';
+    } else if (chapter._originalContent && chapter.content !== chapter._originalContent) {
+        // Se tem conteúdo original salvo (tradução individual)
+        if (showOriginal) {
+            contentToShow = chapter._originalContent;
+            buttonText = '<span class="mui-icon mui-icon--translate"></span> Ver Tradução';
+        } else {
+            contentToShow = chapter.content;
+            buttonText = '<span class="mui-icon mui-icon--visibility"></span> Ver Original';
+        }
+        toggleOriginalBtn.style.display = 'inline-flex';
+    } else {
+        // Se não tem tradução
+        contentToShow = chapter.content;
+        toggleOriginalBtn.style.display = 'none';
+    }
+    
+    // Atualizar conteúdo na tela
+    document.getElementById('readerText').innerHTML = `
+        <div class="mui-chapter-content" data-chapter="${currentChapterIndex}">
+            <h2 class="mui-chapter-title">${chapter.title}</h2>
+            <div class="mui-chapter-text">
+                ${contentToShow.replace(/\n/g, '<br>')}
+            </div>
+        </div>
+    `;
+    
+    // Atualizar botão de alternância
+    if (buttonText) {
+        toggleOriginalBtn.innerHTML = buttonText;
+    }
+    
+    // Atualizar navegação
+    document.getElementById('currentChapter').textContent = currentChapterIndex + 1;
+    document.getElementById('prevChapter').disabled = currentChapterIndex === 0;
+    document.getElementById('nextChapter').disabled = currentChapterIndex === chapters.length - 1;
+    document.querySelectorAll('.mui-chapter-item').forEach((item, index) => {
+        item.classList.toggle('mui-chapter-item--active', index === currentChapterIndex);
+    });
+    
+    // Reanexar listener de seleção
+    setupQuickDictBar();
+}
+
+function translateCurrentChapter() {
+    const chapter = chapters[currentChapterIndex];
+    const sourceLang = 'auto';
+    const targetLang = 'pt';
+    const btn = document.getElementById('translateBtn');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="mui-icon mui-icon--translate"></span> Traduzindo...';
+    loadingOverlay.classList.add('mui-loading-overlay--show');
+    // Salva o original antes de traduzir
+    if (!chapter._originalContent) {
+        chapter._originalContent = chapter.content;
+    }
+    fetch('/translate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            text: chapter.content,
+            source_lang: sourceLang,
+            target_lang: targetLang,
+            chapter_index: currentChapterIndex,
+            file_id: '{{ file_id }}'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.translated_text) {
+            chapters[currentChapterIndex].content = data.translated_text;
+            showOriginal = false;
+            updateChapterDisplay();
+            showNotification('Capítulo traduzido com sucesso!', 'success');
+        } else {
+            showNotification('Erro ao traduzir: ' + (data.error || 'Erro desconhecido'), 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Erro ao traduzir: ' + error.message, 'error');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="mui-icon mui-icon--translate"></span> Traduzir Capítulo';
+        loadingOverlay.classList.remove('mui-loading-overlay--show');
+    });
+}
+
+function translateAllChapters() {
+    const progressModal = document.getElementById('progressModal');
+    const progressText = document.getElementById('progressText');
+    const progressDetails = document.getElementById('progressDetails');
+    const progressFill = document.getElementById('progressFill');
+    const progressPercentage = document.getElementById('progressPercentage');
+    const downloadBtn = document.getElementById('downloadTranslatedBtn');
+    const cancelBtn = document.getElementById('cancelProgress');
+    
+    // Verificar se já foi traduzido
+    const alreadyTranslated = chapters.every(chapter => chapter.translated_content || chapter._originalContent);
+    
+    if (alreadyTranslated) {
+        // Se já foi traduzido, perguntar se quer traduzir novamente
+        if (confirm('Este EPUB já foi traduzido. Deseja traduzir novamente?')) {
+            startTranslation();
+        } else {
+            // Se não quiser traduzir novamente, fazer download direto
+            window.location.href = "{{ url_for('download_epub', file_id=file_id) }}";
+        }
+        return;
+    }
+    
+    startTranslation();
+    
+    function startTranslation() {
+        // Mostrar modal de progresso
+        progressModal.classList.add('mui-modal--open');
+        
+        // Configurar progresso inicial
+        const totalChapters = chapters.length;
+        let currentChapter = 0;
+        
+        function updateProgress() {
+            const percentage = Math.round((currentChapter / totalChapters) * 100);
+            progressFill.style.width = `${percentage}%`;
+            progressPercentage.textContent = `${percentage}%`;
+            progressDetails.textContent = `Capítulo ${currentChapter + 1} de ${totalChapters}`;
+        }
+        
+        function translateChapter(index) {
+            if (index >= totalChapters) {
+                // Tradução completa
+                progressText.textContent = 'Tradução concluída!';
+                progressFill.style.width = '100%';
+                progressPercentage.textContent = '100%';
+                progressDetails.textContent = `${totalChapters} capítulos traduzidos`;
+                
+                // Fazer download automático após 1 segundo
+                setTimeout(() => {
+                    progressModal.classList.remove('mui-modal--open');
+                    window.location.href = "{{ url_for('download_epub', file_id=file_id) }}";
+                }, 1000);
+                
+                return;
+            }
+            
+            currentChapter = index;
+            updateProgress();
+            progressText.textContent = `Traduzindo capítulo ${index + 1}...`;
+            
+            const chapter = chapters[index];
+            
+            fetch('/translate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    text: chapter.content,
+                    source_lang: 'auto',
+                    target_lang: 'pt',
+                    chapter_index: index,
+                    file_id: '{{ file_id }}'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.translated_text) {
+                    chapters[index].content = data.translated_text;
+                    chapters[index].translated_content = data.translated_text;
+                    chapters[index]._originalContent = chapters[index].original_content || chapters[index].content;
+                    // Continuar com próximo capítulo
+                    setTimeout(() => translateChapter(index + 1), 500);
+                } else {
+                    throw new Error(data.error || 'Erro desconhecido');
+                }
+            })
+            .catch(error => {
+                progressText.textContent = 'Erro na tradução';
+                progressDetails.textContent = error.message;
+                cancelBtn.style.display = 'inline-flex';
+                showNotification('Erro ao traduzir: ' + error.message, 'error');
+            });
+        }
+        
+        // Iniciar tradução
+        translateChapter(0);
+    }
+    
+    // Event listeners
+    cancelBtn.addEventListener('click', function() {
+        progressModal.classList.remove('mui-modal--open');
+    });
+    
+    downloadBtn.addEventListener('click', function() {
+        window.location.href = "{{ url_for('download_epub', file_id=file_id) }}";
+    });
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `mui-notification mui-notification--${type}`;
+    notification.innerHTML = `
+        <span class="mui-icon mui-icon--${type === 'success' ? 'check' : 'error'}"></span>
+        <span class="mui-notification__message">${message}</span>
+    `;
+    document.body.appendChild(notification);
+    setTimeout(() => {
+        notification.classList.add('mui-notification--show');
+    }, 100);
+    setTimeout(() => {
+        notification.classList.remove('mui-notification--show');
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 3000);
+}
+
+function setupQuickDictBar() {
+    const readerText = document.getElementById('readerText');
+    const quickDictBar = document.getElementById('quickDictBar');
+    const quickDictOriginal = document.getElementById('quickDictOriginal');
+    const quickDictTranslation = document.getElementById('quickDictTranslation');
+    const quickDictForm = document.getElementById('quickDictForm');
+    const quickDictCancel = document.getElementById('quickDictCancel');
+
+    // Detecta seleção de texto
+    readerText.addEventListener('mouseup', function() {
+        setTimeout(() => {
+            const selection = window.getSelection();
+            const selectedText = selection ? selection.toString().trim() : '';
+            if (selectedText.length > 0) {
+                quickDictOriginal.value = selectedText;
+                quickDictTranslation.value = '';
+                quickDictBar.style.display = 'flex';
+                quickDictTranslation.focus();
+            }
+        }, 10);
+    });
+
+    // Cancela barra
+    quickDictCancel.addEventListener('click', function() {
+        quickDictBar.style.display = 'none';
+        quickDictOriginal.value = '';
+        quickDictTranslation.value = '';
+        window.getSelection().removeAllRanges();
+    });
+
+    // Envia tradução personalizada
+    quickDictForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const original = quickDictOriginal.value.trim();
+        const translated = quickDictTranslation.value.trim();
+        
+        if (!original || !translated) {
+            return;
+        }
+        
+        const requestData = { original: original, translated: translated };
+        
+        fetch('/dictionary/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Tradução adicionada ao dicionário!', 'success');
+                quickDictBar.style.display = 'none';
+                quickDictOriginal.value = '';
+                quickDictTranslation.value = '';
+                window.getSelection().removeAllRanges();
+            } else {
+                showNotification('Erro ao adicionar: ' + (data.error || 'Erro desconhecido'), 'error');
+            }
+        })
+        .catch(error => {
+            showNotification('Erro ao adicionar: ' + error.message, 'error');
+        });
+    });
+}
+</script>
+{% endblock %} 
