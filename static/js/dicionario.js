@@ -323,4 +323,48 @@ function _func_MostrarNotificacao(var_strMensagem, var_strTipo) {
             }
         }, 300);
     }, 3000);
+}
+
+function _func_LimparDicionario() {
+    // Confirmar com o usuário antes de limpar
+    if (!confirm('ATENÇÃO: Esta ação irá remover TODAS as entradas do dicionário!\n\nEsta ação não pode ser desfeita. Tem certeza que deseja continuar?')) {
+        return;
+    }
+    
+    // Segunda confirmação para maior segurança
+    if (!confirm('CONFIRMAÇÃO FINAL: Você está prestes a apagar todas as entradas do dicionário.\n\nDigite "LIMPAR" para confirmar:')) {
+        return;
+    }
+    
+    // Mostrar indicador de carregamento
+    const var_objBotaoLimpar = event.target;
+    const var_strTextoOriginal = var_objBotaoLimpar.innerHTML;
+    var_objBotaoLimpar.innerHTML = '<span class="mui-icon mui-icon--sync"></span> Limpando...';
+    var_objBotaoLimpar.disabled = true;
+    
+    fetch('/dicionario/clear', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(var_objResposta => var_objResposta.json())
+    .then(var_dicDados => {
+        if (var_dicDados.success) {
+            _func_MostrarNotificacao(var_dicDados.message, 'success');
+            // Recarregar a página para mostrar o estado vazio
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            _func_MostrarNotificacao('Erro ao limpar dicionário: ' + var_dicDados.error, 'error');
+            // Restaurar botão em caso de erro
+            var_objBotaoLimpar.innerHTML = var_strTextoOriginal;
+            var_objBotaoLimpar.disabled = false;
+        }
+    })
+    .catch(var_objErro => {
+        _func_MostrarNotificacao('Erro ao limpar dicionário: ' + var_objErro.message, 'error');
+        // Restaurar botão em caso de erro
+        var_objBotaoLimpar.innerHTML = var_strTextoOriginal;
+        var_objBotaoLimpar.disabled = false;
+    });
 } 

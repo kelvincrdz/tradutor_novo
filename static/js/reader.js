@@ -150,6 +150,12 @@ function _func_CarregarCapitulo(var_intIndice) {
     // Mostrar/ocultar botão de alternar original
     if (var_dicCapitulo.original_content && var_dicCapitulo.translated_content) {
         var_objBotaoAlternarOriginal.style.display = 'inline-flex';
+    } else if (var_dicCapitulo.translated_content) {
+        // Se tem tradução mas não tem original_content, usar o content atual como original
+        if (!var_dicCapitulo.original_content) {
+            var_dicCapitulo.original_content = var_dicCapitulo.content;
+        }
+        var_objBotaoAlternarOriginal.style.display = 'inline-flex';
     } else {
         var_objBotaoAlternarOriginal.style.display = 'none';
     }
@@ -179,11 +185,23 @@ function _func_AlternarVisualizacaoOriginal() {
     const var_objTextoCapitulo = var_objTextoLeitor.querySelector('.mui-chapter-text');
     
     if (var_objTextoCapitulo) {
-        if (var_boolMostrandoOriginal && var_dicCapitulo.original_content) {
-            var_objTextoCapitulo.innerHTML = var_dicCapitulo.original_content.replace(/\n/g, '<br>');
+        if (var_boolMostrandoOriginal) {
+            // Mostrar conteúdo original
+            let var_strConteudoOriginal = var_dicCapitulo.original_content;
+            
+            // Se não tem original_content, usar o content atual
+            if (!var_strConteudoOriginal) {
+                var_strConteudoOriginal = var_dicCapitulo.content;
+                // Definir original_content para uso futuro
+                var_dicCapitulo.original_content = var_strConteudoOriginal;
+            }
+            
+            var_objTextoCapitulo.innerHTML = var_strConteudoOriginal.replace(/\n/g, '<br>');
             var_objBotaoAlternarOriginal.innerHTML = '<span class="mui-icon mui-icon--translate"></span> Ver tradução';
         } else {
-            var_objTextoCapitulo.innerHTML = var_dicCapitulo.content.replace(/\n/g, '<br>');
+            // Mostrar conteúdo traduzido
+            let var_strConteudoTraduzido = var_dicCapitulo.translated_content || var_dicCapitulo.content;
+            var_objTextoCapitulo.innerHTML = var_strConteudoTraduzido.replace(/\n/g, '<br>');
             var_objBotaoAlternarOriginal.innerHTML = '<span class="mui-icon mui-icon--visibility"></span> Ver original';
         }
     }
@@ -232,21 +250,17 @@ function _func_TraduzirCapituloAtual() {
     .then(var_objResposta => var_objResposta.json())
     .then(var_dicDados => {
         if (var_dicDados.translated_text) {
-            // Atualizar capítulo com a tradução
-            var_listCapitulos[var_intCapituloAtual].translated_content = var_dicDados.translated_text;
-            var_listCapitulos[var_intCapituloAtual].content = var_dicDados.translated_text;
+            // Garantir que original_content seja definido antes de salvar a tradução
             if (!var_listCapitulos[var_intCapituloAtual].original_content) {
                 var_listCapitulos[var_intCapituloAtual].original_content = var_dicCapitulo.content;
             }
-
-            // Atualizar o conteúdo diretamente no mui-chapter-content
-            const var_objTextoCapitulo = var_objTextoLeitor.querySelector('.mui-chapter-text');
-            if (var_objTextoCapitulo) {
-                var_objTextoCapitulo.innerHTML = var_dicDados.translated_text.replace(/\n/g, '<br>');
-            }
             
-            // Mostrar botão de alternar original
-            var_objBotaoAlternarOriginal.style.display = 'inline-flex';
+            var_listCapitulos[var_intCapituloAtual].content = var_dicDados.translated_text;
+            var_listCapitulos[var_intCapituloAtual].translated_content = var_dicDados.translated_text;
+            var_listCapitulos[var_intCapituloAtual]._originalContent = var_listCapitulos[var_intCapituloAtual].original_content || var_listCapitulos[var_intCapituloAtual].content;
+            
+            // Atualizar a visualização do capítulo atual
+            _func_CarregarCapitulo(var_intCapituloAtual);
             
             _func_MostrarNotificacao('Capítulo traduzido com sucesso!', 'success');
         } else {
@@ -420,6 +434,11 @@ function _func_TraduzirTodosCapitulos() {
                 }
                 
                 if (var_dicDados.translated_text) {
+                    // Garantir que original_content seja definido antes de salvar a tradução
+                    if (!var_listCapitulos[var_intIndice].original_content) {
+                        var_listCapitulos[var_intIndice].original_content = var_dicCapitulo.content;
+                    }
+                    
                     var_listCapitulos[var_intIndice].content = var_dicDados.translated_text;
                     var_listCapitulos[var_intIndice].translated_content = var_dicDados.translated_text;
                     var_listCapitulos[var_intIndice]._originalContent = var_listCapitulos[var_intIndice].original_content || var_listCapitulos[var_intIndice].content;

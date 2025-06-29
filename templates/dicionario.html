@@ -66,6 +66,22 @@
             </div>
             <div class="mui-card__content">
                 {% if dicionario %}
+                <!-- Ações em Massa -->
+                <div class="mui-bulk-actions">
+                    <div class="mui-bulk-actions__content">
+                        <div class="mui-bulk-actions__info">
+                            <span class="mui-icon mui-icon--warning"></span>
+                            <span>Ações em massa afetam todas as entradas do dicionário</span>
+                        </div>
+                        <div class="mui-bulk-actions__buttons">
+                            <button class="mui-button mui-button--outlined mui-button--danger" onclick="_func_LimparDicionario()">
+                                <span class="mui-icon mui-icon--delete_sweep"></span>
+                                Limpar Todas as Entradas
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="mui-dicionario-list">
                     {% for original, translated in dicionario.items() %}
                     <div class="mui-dicionario-item" data-original="{{ original }}">
@@ -165,7 +181,7 @@
                                 <strong>Baixe seu dicionário</strong> em formato JSON
                             </p>
                             <p class="mui-upload-hint">Backup completo das suas traduções personalizadas</p>
-                            <a href="/_func_DownloadDicionario" class="mui-button mui-button--outlined">
+                            <a href="/dicionario/download" class="mui-button mui-button--outlined">
                                 <span class="mui-icon mui-icon--download"></span>
                                 Exportar Dicionário
                             </a>

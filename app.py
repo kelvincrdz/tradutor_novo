@@ -278,8 +278,20 @@ def _func_TraduzirTexto(var_strTexto, var_strIdiomaOrigem='auto', var_strIdiomaD
 
 def _func_AplicarDicionario(var_strTexto, var_dicDicionario):
     """Aplica o dicionário personalizado ao texto"""
-    for var_strOriginal, var_strTraducao in var_dicDicionario.items():
-        var_strTexto = var_strTexto.replace(var_strOriginal, var_strTraducao)
+    import re
+    
+    # Ordenar as entradas do dicionário por tamanho (mais longas primeiro)
+    # para evitar que expressões menores substituam partes de expressões maiores
+    var_listEntradasOrdenadas = sorted(var_dicDicionario.items(), key=lambda x: len(x[0]), reverse=True)
+    
+    for var_strOriginal, var_strTraducao in var_listEntradasOrdenadas:
+        # Criar um padrão regex que busca a palavra/expressão exata
+        # \b garante que estamos no início/fim de uma palavra
+        var_strPadrao = r'\b' + re.escape(var_strOriginal) + r'\b'
+        
+        # Fazer a substituição usando regex com flag case-insensitive
+        var_strTexto = re.sub(var_strPadrao, var_strTraducao, var_strTexto, flags=re.IGNORECASE)
+    
     return var_strTexto
 
 @app.route('/')
@@ -604,6 +616,22 @@ def _func_DownloadDicionario():
         
     except Exception as var_objErro:
         return jsonify({'success': False, 'error': f'Erro ao gerar arquivo: {str(var_objErro)}'})
+
+@app.route('/dicionario/clear', methods=['POST'])
+def _func_LimparDicionario():
+    """Limpa todas as entradas do dicionário personalizado"""
+    try:
+        # Salvar dicionário vazio
+        _func_SalvarDicionario({})
+        
+        return jsonify({
+            'success': True,
+            'message': 'Dicionário limpo com sucesso! Todas as entradas foram removidas.',
+            'entries_count': 0
+        })
+        
+    except Exception as var_objErro:
+        return jsonify({'success': False, 'error': f'Erro ao limpar dicionário: {str(var_objErro)}'})
 
 @app.route('/download/<file_id>')
 def _func_DownloadEpub(file_id):
