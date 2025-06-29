@@ -1,5 +1,29 @@
-Flask>=2.3.0
-beautifulsoup4>=4.12.0
-deep-translator>=1.11.0
-lxml>=4.9.0
-Werkzeug>=2.3.0 
+# Dependências principais
+Flask==2.3.3
+Werkzeug==2.3.7
+
+# Processamento de EPUB
+beautifulsoup4==4.12.2
+lxml==4.9.3
+
+# Tradução
+deep-translator
+
+# Utilitários
+python-magic==0.4.27
+Pillow==10.0.1
+
+# WSGI Server para produção
+gunicorn==21.2.0
+
+# Logging e monitoramento
+python-json-logger==2.0.7
+
+# Segurança
+cryptography==41.0.7
+
+# Cache (opcional)
+redis==5.0.1
+
+# Variáveis de ambiente
+python-dotenv==1.0.0 
