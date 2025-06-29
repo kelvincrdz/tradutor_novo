@@ -11,6 +11,7 @@ from deep_translator import GoogleTranslator
 import uuid
 from datetime import datetime
 import hashlib
+import markdown
 
 app = Flask(__name__)
 app.secret_key = 'sua_chave_secreta_aqui'
@@ -677,15 +678,25 @@ def _func_PaginaChangelog():
         var_strCaminhoChangelog = 'CHANGELOG.md'
         if os.path.exists(var_strCaminhoChangelog):
             with open(var_strCaminhoChangelog, 'r', encoding='utf-8') as var_objArquivo:
-                var_strConteudo = var_objArquivo.read()
+                var_strConteudoMarkdown = var_objArquivo.read()
         else:
-            var_strConteudo = "# Changelog\n\nNenhum changelog disponível."
+            var_strConteudoMarkdown = "# Changelog\n\nNenhum changelog disponível."
         
-        return render_template('changelog.html', changelog_content=var_strConteudo)
+        # Converter Markdown para HTML (apenas extensões essenciais)
+        var_strConteudoHTML = markdown.markdown(
+            var_strConteudoMarkdown,
+            extensions=[
+                'markdown.extensions.tables',
+                'markdown.extensions.fenced_code',
+                'markdown.extensions.nl2br'
+            ]
+        )
+        
+        return render_template('changelog.html', changelog_content=var_strConteudoHTML)
     
     except Exception as var_objErro:
         print(f"Erro ao carregar changelog: {var_objErro}")
-        return render_template('changelog.html', changelog_content="# Erro\n\nErro ao carregar o changelog.")
+        return render_template('changelog.html', changelog_content="<h1>Erro</h1><p>Erro ao carregar o changelog.</p>")
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 
