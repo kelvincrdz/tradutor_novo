@@ -1,15 +1,15 @@
-# EPUB Translator
+# Tradutor de Livros Digital
 
-Um aplicativo web moderno para tradução e leitura de arquivos EPUB, desenvolvido com Flask e Python, utilizando Material UI para uma interface limpa e responsiva.
+Um aplicativo web que traduz seus livros EPUB sem você ter que virar tradutor profissional. Feito com Flask e Python, com uma interface que não dá dor de cabeça.
 
-## 🚀 Características
+## 🚀 O Que Tem de Legal
 
-- **Upload de EPUB**: Suporte para upload de arquivos EPUB
-- **Tradução Automática**: Tradução usando Google Translate e Deep Translator
-- **Dicionário Personalizado**: Crie suas próprias traduções personalizadas
-- **Interface Moderna**: Design Material UI responsivo e intuitivo
-- **Leitor Integrado**: Visualize e edite traduções diretamente no navegador
-- **Download**: Baixe o EPUB traduzido para leitura offline
+- **Joga o Livro Aqui**: Arrasta o EPUB e pronto
+- **Tradução na Hora**: O Google faz o trabalho pesado
+- **Seu Dicionário**: Ensina ao sistema como traduzir do seu jeito
+- **Interface Sem Frescura**: Design limpo que funciona
+- **Leitor Integrado**: Lê e arruma as traduções direto no navegador
+- **Leva Pra Casa**: Baixa o livro traduzido e lê onde quiser
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -96,13 +96,13 @@ O aplicativo é totalmente responsivo e se adapta a diferentes tamanhos de tela:
 - **Tablet**: Layout adaptado com grid responsivo
 - **Mobile**: Layout otimizado para toque
 
-## 🎯 Como Usar
+## 🎯 Como Funciona (É Super Fácil)
 
-1. **Upload**: Faça upload de um arquivo EPUB
-2. **Tradução**: O sistema traduzirá automaticamente
-3. **Revisão**: Revise e edite as traduções
-4. **Dicionário**: Adicione traduções personalizadas
-5. **Download**: Baixe o EPUB traduzido
+1. **Joga o Livro**: Arrasta o EPUB ou clica pra escolher
+2. **Máquina Traduz**: O Google vai lá e traduz tudo
+3. **Dá Uma Olhada**: Se ficou estranho, você arruma
+4. **Seu Dicionário**: Ensina ao sistema como traduzir do seu jeito
+5. **Baixa e Pronto**: Pega o livro e vai ler onde quiser
 
 ## 📁 Estrutura do Projeto
 
@@ -157,4 +157,4 @@ Contribuições são bem-vindas! Por favor, abra uma issue ou envie um pull requ
 
 ---
 
-Desenvolvido com ❤️ usando Flask e Material UI 
+Feito com carinho usando Flask e Material UI (e muito café) 
