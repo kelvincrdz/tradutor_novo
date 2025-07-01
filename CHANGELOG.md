@@ -1,5 +1,52 @@
 # Changelog - Sistema de Tradução de EPUBs
 
+## [1.5.0] - 2024-12-19
+
+### 🐛 Correções de Bugs Críticos
+- **Sistema TTS - Triplicação de Texto**
+  - Corrigido problema de triplicação do texto ao clicar durante a leitura
+  - Implementado controle de estado para evitar chamadas múltiplas simultâneas
+  - Melhorada função `destacarFrase()` com verificações de segurança
+  - Corrigida função `limparHighlight()` para remoção segura de elementos
+
+### 🔧 Melhorias no Sistema TTS
+- **Controle de Estado**
+  - Adicionada variável global `leituraEmAndamento` para controle preciso
+  - Listeners de eventos para detectar interrupções da leitura
+  - Verificações de estado antes de iniciar nova leitura
+  - Cancelamento adequado de leituras anteriores
+
+- **Manipulação Segura do DOM**
+  - Verificações de existência de elementos antes da manipulação
+  - Processamento recursivo mais robusto dos nós do DOM
+  - Normalização do DOM para remover nós vazios adjacentes
+  - Substituição segura de elementos highlight por nós de texto
+
+- **Funções de Leitura Aprimoradas**
+  - `lerTextoTTS()`: Validação de texto e controle de estado
+  - `iniciarLeituraCapituloAtualETTS()`: Verificações de segurança
+  - `iniciarLeituraAPartirDoClique()`: Controle adequado de cancelamento
+  - `pararLeituraTTS()`: Limpeza automática de highlights
+
+### 🛡️ Segurança e Estabilidade
+- **Prevenção de Conflitos**
+  - Evita chamadas múltiplas simultâneas ao sistema TTS
+  - Controle adequado de timing para transições entre capítulos
+  - Verificações de validade de texto antes do processamento
+  - Tratamento robusto de erros e estados inesperados
+
+- **Compatibilidade**
+  - Mantém total compatibilidade com sistema de tradução
+  - Não afeta funcionalidades de tradução existentes
+  - Preserva highlights visuais e navegação por clique
+  - Mantém sincronização entre texto e áudio
+
+### 📝 Notas Técnicas
+- **Arquivos Modificados**: `static/js/tts.js`
+- **Impacto**: Apenas no sistema TTS, sem afetar traduções
+- **Compatibilidade**: Total com versões anteriores
+- **Performance**: Melhorada com redução de processamento desnecessário
+
 ## [1.4.0] - 2024-12-19
 
 ### ✨ Novas Funcionalidades
@@ -118,6 +165,7 @@ Para reportar bugs ou sugerir melhorias:
 
 ## Notas de Versão
 
+- **Versão 1.5.0**: Correções críticas no sistema TTS para resolver problema de triplicação de texto
 - **Versão 1.4.0**: Foco em melhorias no sistema de dicionário e correções de bugs críticos
 - **Versão 1.3.0**: Introdução do sistema de dicionário personalizado e modo escuro
 - **Versão 1.2.0**: Implementação da tradução simultânea e sistema de notificações

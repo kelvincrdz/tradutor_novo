@@ -88,6 +88,9 @@ function inicializarTTS() {
   botaoIniciarLeitura.addEventListener('click', iniciarLeituraCapituloAtualETTS);
   botaoPausarLeitura.addEventListener('click', pausarLeituraTTS);
   botaoPararLeitura.addEventListener('click', pararLeituraTTS);
+  
+  // Inicializar funcionalidade de toggle dos controles
+  inicializarToggleTTS();
 }
 
 function carregarVozesTTS() {
@@ -484,6 +487,68 @@ function notificarTTS(msg) {
   }
 }
 // Exemplo: notificarTTS('Capítulo finalizado!');
+
+// Função para inicializar o toggle dos controles de TTS
+function inicializarToggleTTS() {
+  const toggleButton = document.getElementById('toggle_tts_controls');
+  const controlesTTS = document.getElementById('controles_tts');
+  const toggleText = toggleButton?.querySelector('.toggle-text');
+  const toggleIcon = toggleButton?.querySelector('.mui-icon');
+  
+  if (!toggleButton || !controlesTTS) {
+    console.error('Elementos de toggle TTS não encontrados');
+    return;
+  }
+  
+  // Verificar estado salvo no localStorage
+  const ttsVisible = localStorage.getItem('tts_controls_visible') === 'true';
+  
+  // Aplicar estado inicial
+  if (ttsVisible) {
+    controlesTTS.classList.remove('mui-tts-hidden');
+    controlesTTS.classList.add('mui-tts-visible');
+    toggleButton.classList.add('mui-button--active');
+    if (toggleText) toggleText.textContent = 'Ocultar TTS';
+    if (toggleIcon) toggleIcon.classList.remove('mui-icon--volume_up');
+    if (toggleIcon) toggleIcon.classList.add('mui-icon--volume_off');
+  } else {
+    controlesTTS.classList.add('mui-tts-hidden');
+    controlesTTS.classList.remove('mui-tts-visible');
+    toggleButton.classList.remove('mui-button--active');
+    if (toggleText) toggleText.textContent = 'Mostrar TTS';
+    if (toggleIcon) toggleIcon.classList.add('mui-icon--volume_up');
+    if (toggleIcon) toggleIcon.classList.remove('mui-icon--volume_off');
+  }
+  
+  // Adicionar event listener para toggle
+  toggleButton.addEventListener('click', function() {
+    const isVisible = controlesTTS.classList.contains('mui-tts-visible');
+    
+    if (isVisible) {
+      // Ocultar controles
+      controlesTTS.classList.remove('mui-tts-visible');
+      controlesTTS.classList.add('mui-tts-hidden');
+      toggleButton.classList.remove('mui-button--active');
+      if (toggleText) toggleText.textContent = 'Mostrar TTS';
+      if (toggleIcon) {
+        toggleIcon.classList.remove('mui-icon--volume_off');
+        toggleIcon.classList.add('mui-icon--volume_up');
+      }
+      localStorage.setItem('tts_controls_visible', 'false');
+    } else {
+      // Mostrar controles
+      controlesTTS.classList.remove('mui-tts-hidden');
+      controlesTTS.classList.add('mui-tts-visible');
+      toggleButton.classList.add('mui-button--active');
+      if (toggleText) toggleText.textContent = 'Ocultar TTS';
+      if (toggleIcon) {
+        toggleIcon.classList.remove('mui-icon--volume_up');
+        toggleIcon.classList.add('mui-icon--volume_off');
+      }
+      localStorage.setItem('tts_controls_visible', 'true');
+    }
+  });
+}
 
 function pausarLeituraTTS() {
   if (var_objetoTTS.sintetizador.speaking && !var_objetoTTS.sintetizador.paused) {
