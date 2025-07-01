@@ -156,14 +156,7 @@
             <!-- Main Content -->
             <div class="mui-reader-main">
                 <div class="mui-reader-text" id="readerText">
-                    {% if epub_data.chapters %}
-                    <div class="mui-chapter-content" data-chapter="0">
-                        <h2 class="mui-chapter-title">{{ epub_data.chapters[0].title }}</h2>
-                        <div class="mui-chapter-text">
-                            {{ epub_data.chapters[0].content|replace('\n', '<br>')|safe }}
-                        </div>
-                    </div>
-                    {% else %}
+                    {% if not epub_data.chapters %}
                     <div class="mui-empty-state">
                         <span class="mui-icon mui-icon--book"></span>
                         <h3>Nenhum conteúdo encontrado</h3>

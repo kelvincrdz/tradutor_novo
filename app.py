@@ -94,6 +94,39 @@ def _func_ExtrairConteudoEpub(var_strCaminhoEpub):
             # Encontrar o diretório base
             var_strDiretorioOPF = os.path.dirname(var_strCaminhoOPF)
             
+            # Procurar toc.ncx e nav.xhtml
+            var_strCaminhoTOCNCX = None
+            var_strCaminhoNavXHTML = None
+            for info in var_objEpub.infolist():
+                if info.filename.lower().endswith('toc.ncx'):
+                    var_strCaminhoTOCNCX = info.filename
+                if info.filename.lower().endswith('nav.xhtml'):
+                    var_strCaminhoNavXHTML = info.filename
+            # 1. Extrair nomes do toc.ncx
+            toc_ncx_titles = []
+            if var_strCaminhoTOCNCX:
+                try:
+                    toc_ncx_xml = var_objEpub.read(var_strCaminhoTOCNCX)
+                    soup_ncx = BeautifulSoup(toc_ncx_xml, 'xml')
+                    navpoints = soup_ncx.find_all('navPoint')
+                    for nav in navpoints:
+                        label = nav.find('navLabel')
+                        text = label.find('text').text.strip() if label and label.find('text') else None
+                        toc_ncx_titles.append(text)
+                except Exception as e:
+                    print(f'Erro ao ler toc.ncx: {e}')
+            # 2. Extrair nomes do nav.xhtml
+            nav_xhtml_titles = []
+            if var_strCaminhoNavXHTML:
+                try:
+                    nav_xhtml = var_objEpub.read(var_strCaminhoNavXHTML)
+                    soup_nav = BeautifulSoup(nav_xhtml, 'html.parser')
+                    nav = soup_nav.find('nav')
+                    if nav:
+                        for a in nav.find_all('a'):
+                            nav_xhtml_titles.append(a.text.strip())
+                except Exception as e:
+                    print(f'Erro ao ler nav.xhtml: {e}')
             # Encontrar o arquivo de manifesto
             var_objManifesto = var_objSoupOPF.find('manifest')
             if var_objManifesto:
@@ -106,52 +139,36 @@ def _func_ExtrairConteudoEpub(var_strCaminhoEpub):
                             if var_strDiretorioOPF:
                                 var_strHref = f"{var_strDiretorioOPF}/{var_strHref}"
                         var_listArquivosHTML.append(var_strHref)
-                
                 # Ler cada arquivo HTML
                 for var_intIndice, var_strArquivoHTML in enumerate(var_listArquivosHTML):
                     try:
                         var_strConteudoHTML = var_objEpub.read(var_strArquivoHTML)
                         var_objSoupHTML = BeautifulSoup(var_strConteudoHTML, 'html.parser')
-                        
                         # Extrair texto preservando formatação
                         def _func_ExtrairTextoFormatado(var_objElemento):
-                            """Extrai texto preservando formatação básica"""
                             if var_objElemento.name in ['p', 'div', 'section']:
-                                # Preservar quebras de linha dentro do elemento
                                 var_strTexto = var_objElemento.get_text()
-                                # Substituir quebras HTML por quebras de texto
                                 for var_objBR in var_objElemento.find_all('br'):
                                     var_objBR.replace_with('\n')
-                                # Adicionar quebra de linha dupla para parágrafos
                                 return var_strTexto.strip() + '\n\n'
                             elif var_objElemento.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
-                                # Títulos com quebra dupla
                                 return var_objElemento.get_text().strip() + '\n\n'
                             elif var_objElemento.name in ['br']:
-                                # Quebra de linha simples
                                 return '\n'
                             elif var_objElemento.name in ['blockquote']:
-                                # Citações com quebra dupla
                                 var_strTexto = var_objElemento.get_text()
                                 for var_objBR in var_objElemento.find_all('br'):
                                     var_objBR.replace_with('\n')
                                 return var_strTexto.strip() + '\n\n'
                             else:
-                                # Texto normal
                                 return var_objElemento.get_text().strip()
-                        
-                        # Extrair texto com formatação
                         var_strTextoFormatado = ""
                         for var_objElemento in var_objSoupHTML.find_all(['p', 'div', 'section', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote']):
                             var_strTextoFormatado += _func_ExtrairTextoFormatado(var_objElemento)
-                        
-                        # Se não encontrou elementos estruturados, usar get_text() normal
                         if not var_strTextoFormatado.strip():
                             var_strTexto = var_objSoupHTML.get_text()
-                            # Preservar quebras de linha existentes
                             for var_objBR in var_objSoupHTML.find_all('br'):
                                 var_objBR.replace_with('\n')
-                            # Limpar texto preservando quebras de linha
                             var_listLinhas = []
                             for var_strLinha in var_strTexto.splitlines():
                                 var_strLinha = var_strLinha.strip()
@@ -160,28 +177,38 @@ def _func_ExtrairConteudoEpub(var_strCaminhoEpub):
                             var_strTexto = '\n\n'.join(var_listLinhas)
                         else:
                             var_strTexto = var_strTextoFormatado
-                        
-                        # Limpar texto final
                         var_strTexto = var_strTexto.strip()
-                        # Remover quebras de linha excessivas
                         var_strTexto = re.sub(r'\n{3,}', '\n\n', var_strTexto)
-                        # Preservar quebras simples dentro de parágrafos
-                        var_strTexto = re.sub(r'\n([^-\n])', r'\n\1', var_strTexto)
-                        
+                        var_strTexto = re.sub(r'\n([^\-\n])', r'\n\1', var_strTexto)
+                        # 3. Buscar título no conteúdo (primeiro h1 ou h2)
+                        cap_title = None
+                        h1 = var_objSoupHTML.find('h1')
+                        h2 = var_objSoupHTML.find('h2')
+                        if h1 and h1.text.strip():
+                            cap_title = h1.text.strip()
+                        elif h2 and h2.text.strip():
+                            cap_title = h2.text.strip()
+                        # 1. Prioridade toc.ncx
+                        if var_intIndice < len(toc_ncx_titles) and toc_ncx_titles[var_intIndice]:
+                            cap_title = toc_ncx_titles[var_intIndice]
+                        # 2. Prioridade nav.xhtml
+                        elif var_intIndice < len(nav_xhtml_titles) and nav_xhtml_titles[var_intIndice]:
+                            cap_title = nav_xhtml_titles[var_intIndice]
+                        # 4. Nome padrão
+                        if not cap_title:
+                            cap_title = f'Capítulo {var_intIndice+1}'
                         if var_strTexto.strip():
                             var_dicConteudo['chapters'].append({
                                 'id': var_intIndice,
-                                'title': f'Capítulo {var_intIndice+1}',
+                                'title': cap_title,
                                 'content': var_strTexto,
                                 'html_content': str(var_objSoupHTML)
                             })
                     except Exception as var_objErro:
                         print(f"Erro ao processar arquivo {var_strArquivoHTML}: {var_objErro}")
                         continue
-                        
     except Exception as var_objErro:
         print(f"Erro ao extrair EPUB: {var_objErro}")
-    
     return var_dicConteudo
 
 def _func_TraduzirTexto(var_strTexto, var_strIdiomaOrigem='auto', var_strIdiomaDestino='pt'):
