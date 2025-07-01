@@ -59,9 +59,76 @@
                     <span class="mui-icon mui-icon--visibility"></span>
                     Ver original
                 </button>
+                <!-- Botões de acesso rápido -->
+                <button id="botao_estatisticas" class="mui-button mui-button--outlined" title="Estatísticas">
+                    <span class="mui-icon mui-icon--info"></span>
+                    Estatísticas
+                </button>
+                <button id="botao_marcadores" class="mui-button mui-button--outlined" title="Marcadores">
+                    <span class="mui-icon mui-icon--bookmark"></span>
+                    Marcadores
+                </button>
+                <button id="botao_cronometro" class="mui-button mui-button--outlined" title="Cronômetro">
+                    <span class="mui-icon mui-icon--history"></span>
+                    Cronômetro
+                </button>
             </div>
         </div>
     </div>
+
+    <!-- Controles de TTS -->
+    <div id="controles_tts" class="mui-tts-bar mui-tts-grid">
+        <!-- Coluna 1: Seleção de voz -->
+        <div class="mui-tts-col">
+            <label for="seletor_voz" class="mui-form-label">Voz</label>
+            <select id="seletor_voz" class="mui-select" style="min-width: 160px;"></select>
+            <button id="botao_teste_voz" class="mui-button mui-button--outlined" title="Testar voz">
+                <span class="mui-icon mui-icon--volume_up"></span> Testar voz
+            </button>
+        </div>
+        <!-- Coluna 2: Sliders -->
+        <div class="mui-tts-col">
+            <div class="mui-tts-group">
+                <label for="controle_velocidade" class="mui-form-label">Velocidade</label>
+                <input type="range" id="controle_velocidade" min="0.5" max="4" step="0.1" value="1" class="mui-slider">
+                <span id="valor_velocidade" class="mui-slider-value">1.0</span>
+            </div>
+            <div class="mui-tts-group">
+                <label for="controle_tom" class="mui-form-label">Tom</label>
+                <input type="range" id="controle_tom" min="0.5" max="3" step="0.1" value="1" class="mui-slider">
+                <span id="valor_tom" class="mui-slider-value">1.0</span>
+            </div>
+            <div class="mui-tts-group">
+                <label for="controle_volume" class="mui-form-label">Volume</label>
+                <input type="range" id="controle_volume" min="0" max="2" step="0.01" value="1" class="mui-slider">
+                <span id="valor_volume" class="mui-slider-value">1.0</span>
+            </div>
+        </div>
+        <!-- Coluna 3: Botões de controle -->
+        <div class="mui-tts-col mui-tts-controls">
+            <button id="botao_iniciar_leitura" class="mui-button mui-button--contained mui-button--primary" title="Iniciar leitura">
+                <span class="mui-icon mui-icon--play_arrow"></span> Iniciar
+            </button>
+            <button id="botao_pausar_leitura" class="mui-button mui-button--outlined" title="Pausar">
+                <span class="mui-icon mui-icon--pause"></span> Pausar
+            </button>
+            <button id="botao_parar_leitura" class="mui-button mui-button--outlined" title="Parar">
+                <span class="mui-icon mui-icon--stop"></span> Parar
+            </button>
+        </div>
+        <!-- Coluna 4: Temporizador de pausa -->
+        <div class="mui-tts-col">
+            <div class="mui-tts-group">
+                <label for="controle_pausa_frase" class="mui-form-label">Pausa entre frases (ms)</label>
+                <input type="number" id="controle_pausa_frase" class="mui-input" min="0" max="3000" step="50" value="400" style="width: 90px; margin-left: 0.5rem;">
+            </div>
+            <div class="mui-tts-group" style="margin-top:1rem;">
+                <label for="simbolos_pausa" class="mui-form-label">Símbolos para pausa (separados por vírgula)</label>
+                <input type="text" id="simbolos_pausa" class="mui-input" value=".?!" style="width: 90px; margin-left: 0.5rem;">
+            </div>
+        </div>
+    </div>
+    <!-- Fim dos controles de TTS -->
 
     <!-- Reader Content -->
     <div class="mui-reader-content">
@@ -176,17 +243,87 @@
             </div>
         </form>
     </div>
+
+    <!-- Painel/Modal de Estatísticas -->
+    <div class="mui-modal" id="modal_estatisticas" style="display:none;">
+        <div class="mui-modal__overlay"></div>
+        <div class="mui-modal__content">
+            <div class="mui-modal__header">
+                <h2 class="mui-modal__title">
+                    <span class="mui-icon mui-icon--info"></span>
+                    Estatísticas de Leitura
+                </h2>
+            </div>
+            <div class="mui-modal__body" id="estatisticas_conteudo">
+                <!-- Conteúdo preenchido via JS -->
+            </div>
+            <div class="mui-modal__footer">
+                <button id="botao_fechar_estatisticas" class="mui-button mui-button--outlined">Fechar</button>
+            </div>
+        </div>
+    </div>
+    <!-- Painel/Modal de Marcadores -->
+    <div class="mui-modal" id="modal_marcadores" style="display:none;">
+        <div class="mui-modal__overlay"></div>
+        <div class="mui-modal__content">
+            <div class="mui-modal__header">
+                <h2 class="mui-modal__title">
+                    <span class="mui-icon mui-icon--bookmark"></span>
+                    Marcadores
+                </h2>
+            </div>
+            <div class="mui-modal__body">
+                <ul id="lista_marcadores" class="bookmarks-list"></ul>
+                <div class="mui-modal__actions" style="margin-top: 1rem;">
+                    <button id="botao_exportar_marcadores" class="mui-button mui-button--outlined">Exportar</button>
+                    <button id="botao_importar_marcadores" class="mui-button mui-button--outlined">Importar</button>
+                </div>
+            </div>
+            <div class="mui-modal__footer">
+                <button id="botao_fechar_marcadores" class="mui-button mui-button--outlined">Fechar</button>
+            </div>
+        </div>
+    </div>
+    <!-- Painel/Modal de Cronômetro -->
+    <div class="mui-modal" id="modal_cronometro" style="display:none;">
+        <div class="mui-modal__overlay"></div>
+        <div class="mui-modal__content">
+            <div class="mui-modal__header">
+                <h2 class="mui-modal__title">
+                    <span class="mui-icon mui-icon--history"></span>
+                    Cronômetro de Leitura
+                </h2>
+            </div>
+            <div class="mui-modal__body">
+                <div id="cronometro_display" class="timer-display">00:00:00</div>
+                <div class="mui-modal__actions" style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button id="botao_cronometro_leitura" class="mui-button mui-button--outlined">Iniciar Leitura</button>
+                    <button id="botao_cronometro_cronometro" class="mui-button mui-button--outlined">Cronômetro</button>
+                    <button id="botao_cronometro_regressiva" class="mui-button mui-button--outlined">Regressiva</button>
+                    <button id="botao_cronometro_pausar" class="mui-button mui-button--outlined">Pausar</button>
+                    <button id="botao_cronometro_retornar" class="mui-button mui-button--outlined">Retomar</button>
+                    <button id="botao_cronometro_resetar" class="mui-button mui-button--outlined">Resetar</button>
+                </div>
+            </div>
+            <div class="mui-modal__footer">
+                <button id="botao_fechar_cronometro" class="mui-button mui-button--outlined">Fechar</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Scripts -->
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 <script src="{{ url_for('static', filename='js/reader.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tts.js') }}"></script>
 <script>
-    // Inicializar dados dos capítulos
     document.addEventListener('DOMContentLoaded', function() {
         const dadosCapitulos = {{ epub_data.chapters|tojson|safe }};
         const fileId = '{{ file_id }}';
         _func_InicializarDadosCapitulos(dadosCapitulos, fileId);
+        if (typeof inicializarTTS === 'function') {
+            inicializarTTS();
+        }
     });
 </script>
 {% endblock %} 

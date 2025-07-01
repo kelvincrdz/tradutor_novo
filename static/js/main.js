@@ -246,6 +246,51 @@ aguardarDOM(function() {
     inicializarTooltips();
     inicializarConfirmacoes();
     inicializarFormularios();
+    // Estatísticas
+    const botaoEstatisticas = document.getElementById('botao_estatisticas');
+    const modalEstatisticas = document.getElementById('modal_estatisticas');
+    const botaoFecharEstatisticas = document.getElementById('botao_fechar_estatisticas');
+    if (botaoEstatisticas && modalEstatisticas) {
+        botaoEstatisticas.addEventListener('click', function() {
+            modalEstatisticas.style.display = 'flex';
+            if (typeof inicializarEstatisticas === 'function') inicializarEstatisticas();
+        });
+    }
+    if (botaoFecharEstatisticas && modalEstatisticas) {
+        botaoFecharEstatisticas.addEventListener('click', function() {
+            modalEstatisticas.style.display = 'none';
+        });
+    }
+    // Marcadores
+    const botaoMarcadores = document.getElementById('botao_marcadores');
+    const modalMarcadores = document.getElementById('modal_marcadores');
+    const botaoFecharMarcadores = document.getElementById('botao_fechar_marcadores');
+    if (botaoMarcadores && modalMarcadores) {
+        botaoMarcadores.addEventListener('click', function() {
+            modalMarcadores.style.display = 'flex';
+            if (typeof inicializarMarcadores === 'function') inicializarMarcadores();
+        });
+    }
+    if (botaoFecharMarcadores && modalMarcadores) {
+        botaoFecharMarcadores.addEventListener('click', function() {
+            modalMarcadores.style.display = 'none';
+        });
+    }
+    // Cronômetro
+    const botaoCronometro = document.getElementById('botao_cronometro');
+    const modalCronometro = document.getElementById('modal_cronometro');
+    const botaoFecharCronometro = document.getElementById('botao_fechar_cronometro');
+    if (botaoCronometro && modalCronometro) {
+        botaoCronometro.addEventListener('click', function() {
+            modalCronometro.style.display = 'flex';
+            if (typeof inicializarCronometro === 'function') inicializarCronometro();
+        });
+    }
+    if (botaoFecharCronometro && modalCronometro) {
+        botaoFecharCronometro.addEventListener('click', function() {
+            modalCronometro.style.display = 'none';
+        });
+    }
 });
 
 // Exportar funções para uso global

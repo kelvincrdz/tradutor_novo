@@ -49,6 +49,9 @@ Funcionalidades específicas da página do dicionário:
 - Upload/importação de dicionário
 - Modal de edição
 
+### `marcadores.js`, `estatisticas.js`, `cronometro.js`
+Estes arquivos são utilizados apenas se incluídos manualmente. No momento, não estão incluídos diretamente nos templates HTML, mas suas funções podem ser chamadas via `main.js` se necessário.
+
 ## Organização e Boas Práticas
 
 ### Convenções de Nomenclatura
