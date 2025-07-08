@@ -7,7 +7,7 @@
     
     <!-- Material UI CSS -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/@mui/material@latest/dist/material-ui.min.css" />
     
     <!-- CSS Base -->
@@ -41,9 +41,17 @@
                         <span class="mui-icon mui-icon--home"></span>
                         Início
                     </a>
+                    <a href="{{ url_for('_func_PaginaLivros') }}" class="mui-navigation__link">
+                        <span class="mui-icon mui-icon--library-books"></span>
+                        Meus Livros
+                    </a>
                     <a href="{{ url_for('_func_PaginaDicionario') }}" class="mui-navigation__link">
                         <span class="mui-icon mui-icon--translate"></span>
                         Dicionário
+                    </a>
+                    <a href="{{ url_for('_func_PaginaDicionarioPronuncia') }}" class="mui-navigation__link">
+                        <span class="mui-icon mui-icon--volume_up"></span>
+                        Pronúncia
                     </a>
                     <a href="{{ url_for('_func_PaginaChangelog') }}" class="mui-navigation__link">
                         <span class="mui-icon mui-icon--history"></span>

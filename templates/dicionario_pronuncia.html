@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+
+{% block title %}Dicionário de Pronúncia - Tradutor de Livros{% endblock %}
+
+{% block content %}
+<div class="mui-container">
+    <!-- Header -->
+    <div class="mui-dicionario-header">
+        <div class="mui-dicionario-header__content">
+            <h1 class="mui-dicionario-header__title">
+                <span class="mui-icon mui-icon--volume_up"></span>
+                Dicionário de Pronúncia
+            </h1>
+            <p class="mui-dicionario-header__description">
+                Ensine ao sistema como você quer que as palavras sejam pronunciadas. É tipo dar aula de fonética pra máquina
+            </p>
+        </div>
+    </div>
+
+    <!-- Add New Entry -->
+    <div class="mui-section">
+        <div class="mui-card">
+            <div class="mui-card__header">
+                <h2 class="mui-card__title">
+                    <span class="mui-icon mui-icon--add"></span>
+                    Adiciona Palavra Nova
+                </h2>
+                <p class="mui-card__subtitle">
+                    Coloca aí a palavra que você quer que seja pronunciada do seu jeito
+                </p>
+            </div>
+            <div class="mui-card__content">
+                <form id="formAdicionarPronuncia" class="mui-form">
+                    <div class="mui-form-row">
+                        <div class="mui-form-group">
+                            <label class="mui-form-label" for="palavra">Palavra Original:</label>
+                            <input type="text" id="palavra" name="palavra" class="mui-input" required placeholder="Digite a palavra original...">
+                        </div>
+                        <div class="mui-form-group">
+                            <label class="mui-form-label" for="pronuncia">Pronúncia:</label>
+                            <input type="text" id="pronuncia" name="pronuncia" class="mui-input" required placeholder="Digite a pronúncia...">
+                        </div>
+                    </div>
+                    <div class="mui-form-actions">
+                        <button type="button" class="mui-button mui-button--outlined" onclick="_func_TestarPronunciaFormulario()" id="btnTestarPronuncia" disabled>
+                            <span class="mui-icon mui-icon--volume_up"></span>
+                            Testar Pronúncia
+                        </button>
+                        <button type="submit" class="mui-button mui-button--contained mui-button--primary">
+                            <span class="mui-icon mui-icon--add"></span>
+                            Adicionar ao Dicionário
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+        <!-- Formulário para adicionar entrada -->
+        <div class="mui-card">
+            <div class="mui-card-header">
+                <h2>Adicionar Nova Entrada</h2>
+            </div>
+            <div class="mui-card-content">
+                <form id="formAdicionarPronuncia" class="mui-form">
+                    <div class="mui-form-row">
+                        <div class="mui-form-group">
+                            <label for="palavra">Palavra Original:</label>
+                            <input type="text" id="palavra" name="palavra" class="mui-input" placeholder="Ex: João" required>
+                        </div>
+                        <div class="mui-form-group">
+                            <label for="pronuncia">Pronúncia:</label>
+                            <input type="text" id="pronuncia" name="pronuncia" class="mui-input" placeholder="Ex: Joãu" required>
+                        </div>
+                    </div>
+                    <div class="mui-form-actions">
+                        <button type="submit" class="mui-button mui-button--primary">
+                            <i class="mui-icon">add</i>
+                            Adicionar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    <!-- dicionario List -->
+    <div class="mui-section">
+        <div class="mui-card">
+            <div class="mui-card__header">
+                <h2 class="mui-card__title">
+                    <span class="mui-icon mui-icon--list"></span>
+                    Entradas do Dicionário
+                </h2>
+                <p class="mui-card__subtitle">
+                    {{ dicionario|length }} entradas cadastradas
+                </p>
+            </div>
+            <div class="mui-card__content">
+                {% if dicionario %}
+                <!-- Ações em Massa -->
+                <div class="mui-bulk-actions">
+                    <div class="mui-bulk-actions__content">
+                        <div class="mui-bulk-actions__info">
+                            <span class="mui-icon mui-icon--warning"></span>
+                            <span>Ações em massa afetam todas as entradas do dicionário</span>
+                        </div>
+                        <div class="mui-bulk-actions__buttons">
+                            <button class="mui-button mui-button--outlined mui-button--danger" onclick="_func_LimparDicionarioPronuncia()">
+                                <span class="mui-icon mui-icon--delete_sweep"></span>
+                                Limpar Todas as Entradas
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mui-dicionario-list">
+                    {% for palavra, pronuncia in dicionario.items() %}
+                    <div class="mui-dicionario-item" data-palavra="{{ palavra }}">
+                        <div class="mui-dicionario-item__content">
+                            <div class="mui-dicionario-item__text">
+                                <div class="mui-dicionario-item__original">
+                                    <strong>Original:</strong> {{ palavra }}
+                                </div>
+                                <div class="mui-dicionario-item__translated">
+                                    <strong>Pronúncia:</strong> {{ pronuncia }}
+                                </div>
+                            </div>
+                            <div class="mui-dicionario-item__actions">
+                                <button class="mui-button mui-button--outlined mui-button--small" onclick="_func_TestarPronuncia('{{ pronuncia }}')" title="Testar pronúncia">
+                                    <span class="mui-icon mui-icon--volume_up"></span>
+                                    Testar
+                                </button>
+                                <button class="mui-button mui-button--outlined mui-button--small" onclick="_func_EditarEntradaPronuncia('{{ palavra }}', '{{ pronuncia }}')">
+                                    <span class="mui-icon mui-icon--edit"></span>
+                                    Editar
+                                </button>
+                                <button class="mui-button mui-button--outlined mui-button--small mui-button--danger" onclick="_func_RemoverEntradaPronuncia('{{ palavra }}')">
+                                    <span class="mui-icon mui-icon--delete"></span>
+                                    Remover
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="mui-empty-state">
+                    <span class="mui-icon mui-icon--volume_up"></span>
+                    <h3>Nenhuma entrada encontrada</h3>
+                    <p>Adicione sua primeira entrada ao dicionário para começar.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+                    
+    <!-- Search -->
+    <div class="mui-section">
+        <div class="mui-card">
+            <div class="mui-card__header">
+                <h2 class="mui-card__title">
+                    <span class="mui-icon mui-icon--search"></span>
+                    Buscar no Dicionário
+                </h2>
+            </div>
+            <div class="mui-card__content">
+                <div class="mui-search">
+                    <div class="mui-search__input">
+                        <span class="mui-icon mui-icon--search"></span>
+                        <input type="text" id="searchInput" class="mui-input" placeholder="Buscar por palavra original ou pronúncia...">
+                    </div>
+                </div>
+                <div id="searchResults" class="mui-search-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import/Export dicionario -->
+    <div class="mui-section">
+        <div class="mui-card">
+            <div class="mui-card__header">
+                <h2 class="mui-card__title">
+                    <span class="mui-icon mui-icon--settings"></span>
+                    Importar/Exportar Dicionário
+                </h2>
+                <p class="mui-card__subtitle">
+                    Faça backup do seu dicionário ou importe entradas de outros arquivos
+                </p>
+            </div>
+            <div class="mui-card__content">
+                <div class="mui-form-row">
+                    <div class="mui-form-group">
+                        <label class="mui-form-label">Upload de Dicionário:</label>
+                        <form id="formUploadPronuncia" enctype="multipart/form-data" class="mui-upload-form">
+                            <div class="mui-upload-area" id="dicionarioUploadArea">
+                                <span class="mui-icon mui-icon--upload"></span>
+                                <p class="mui-upload-text">
+                                    <strong>Clique para selecionar</strong> ou arraste o arquivo JSON aqui
+                                </p>
+                                <p class="mui-upload-hint">Formatos suportados: .json</p>
+                                <input type="file" id="arquivoPronuncia" name="arquivo" accept=".json" class="mui-file-input" required>
+                            </div>
+                            <div class="mui-form-actions">
+                                <button type="submit" class="mui-button mui-button--contained mui-button--primary">
+                                    <span class="mui-icon mui-icon--upload"></span>
+                                    Importar Dicionário
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="mui-form-group">
+                        <label class="mui-form-label">Download do Dicionário:</label>
+                        <div class="mui-download-area">
+                            <span class="mui-icon mui-icon--download"></span>
+                            <p class="mui-upload-text">
+                                <strong>Baixe seu dicionário</strong> em formato JSON
+                            </p>
+                            <p class="mui-upload-hint">Backup completo das suas pronúncias personalizadas</p>
+                            <a href="/dicionario-pronuncia/download" class="mui-button mui-button--outlined">
+                                <span class="mui-icon mui-icon--download"></span>
+                                Exportar Dicionário
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informações -->
+    <div class="mui-section">
+        <div class="mui-card">
+            <div class="mui-card__header">
+                <h2 class="mui-card__title">
+                    <span class="mui-icon mui-icon--info"></span>
+                    Como Usar
+                </h2>
+                <p class="mui-card__subtitle">
+                    Dicas para usar o dicionário de pronúncia de forma eficiente
+                </p>
+            </div>
+            <div class="mui-card__content">
+                <div class="mui-info-grid">
+                    <div class="mui-info-item">
+                        <span class="mui-icon mui-icon--info"></span>
+                        <h3>Palavra Original</h3>
+                        <p>Digite a palavra exatamente como aparece no texto que será narrado.</p>
+                    </div>
+                    <div class="mui-info-item">
+                        <span class="mui-icon mui-icon--volume_up"></span>
+                        <h3>Pronúncia</h3>
+                        <p>Digite como a palavra deve ser pronunciada pelo TTS. Use fonética ou escrita fonética.</p>
+                    </div>
+                    <div class="mui-info-item">
+                        <span class="mui-icon mui-icon--auto_fix_high"></span>
+                        <h3>Substituição Automática</h3>
+                        <p>O sistema substituirá automaticamente a palavra original pela pronúncia durante a narração.</p>
+                    </div>
+                    <div class="mui-info-item">
+                        <span class="mui-icon mui-icon--file_download"></span>
+                        <h3>Backup</h3>
+                        <p>Faça download do seu dicionário para backup ou para usar em outros projetos.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notificações -->
+<div id="notificacoes" class="mui-notifications"></div>
+                
+<!-- Edit Modal -->
+<div class="mui-modal" id="editModal">
+    <div class="mui-modal__overlay" id="editModalOverlay"></div>
+    <div class="mui-modal__content">
+        <div class="mui-modal__header">
+            <h2 class="mui-modal__title">
+                <span class="mui-icon mui-icon--edit"></span>
+                Editar Entrada
+            </h2>
+            <button class="mui-modal__close" id="closeEditModal">
+                <span class="mui-icon mui-icon--close"></span>
+            </button>
+        </div>
+        <div class="mui-modal__body">
+            <form id="editEntryForm" class="mui-form">
+                <div class="mui-form-group">
+                    <label class="mui-form-label" for="editPalavra">Palavra Original:</label>
+                    <input type="text" id="editPalavra" name="palavra" class="mui-input" required>
+                </div>
+                <div class="mui-form-group">
+                    <label class="mui-form-label" for="editPronuncia">Pronúncia:</label>
+                    <input type="text" id="editPronuncia" name="pronuncia" class="mui-input" required>
+                </div>
+            </form>
+        </div>
+        <div class="mui-modal__footer">
+            <button class="mui-button mui-button--outlined" onclick="_func_TestarPronunciaModal()" id="btnTestarPronunciaModal">
+                <span class="mui-icon mui-icon--volume_up"></span>
+                Testar
+            </button>
+            <button class="mui-button mui-button--outlined" onclick="_func_FecharModalEdicao()">
+                Cancelar
+            </button>
+            <button class="mui-button mui-button--contained mui-button--primary" onclick="_func_SalvarEdicao()">
+                <span class="mui-icon mui-icon--save"></span>
+                Salvar Alterações
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dicionario_pronuncia.js') }}"></script>
+{% endblock %} 

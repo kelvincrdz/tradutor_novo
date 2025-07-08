@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+
+{% block title %}Meus Livros - Tradutor de Livros{% endblock %}
+
+{% block content %}
+<div class="mui-container">
+    <!-- Hero Section -->
+    <section class="mui-hero">
+        <div class="mui-hero__content">
+            <h1 class="mui-hero__title">
+                <span class="mui-icon mui-icon--book"></span>
+                Meus Livros
+            </h1>
+            <p class="mui-hero__subtitle">
+                Visualize todos os seus livros e acompanhe o progresso das traduções
+            </p>
+        </div>
+    </section>
+
+    <!-- Books List Section -->
+    <section class="mui-section">
+        {% if livros %}
+            <div class="mui-section-header">
+                <div class="mui-section-header__content">
+                    <h2 class="mui-section-header__title">
+                        <span class="mui-icon mui-icon--library-books"></span>
+                        Biblioteca de Livros
+                    </h2>
+                    <p class="mui-section-header__subtitle">
+                        {{ livros|length }} livro{{ 's' if livros|length != 1 else '' }} na sua biblioteca
+                    </p>
+                </div>
+                <div class="mui-section-header__actions">
+                    <button id="clearAllBooksBtn" class="mui-button mui-button--outlined mui-button--danger" title="Limpar todos os livros">
+                        <span class="mui-icon mui-icon--delete-sweep"></span>
+                        Limpar Todos
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mui-grid">
+                {% for livro in livros %}
+                    <div class="mui-grid__item">
+                        <div class="mui-card mui-book-card">
+                            <div class="mui-card__header">
+                                <div class="mui-book-cover">
+                                    {% if livro.cover %}
+                                        <img src="{{ livro.cover }}" alt="Capa do livro" class="mui-book-cover-img">
+                                    {% else %}
+                                        <div class="mui-book-cover-placeholder">
+                                            <span class="mui-icon mui-icon--book"></span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mui-book-info">
+                                    <h3 class="mui-book-title">{{ livro.title }}</h3>
+                                    {% if livro.original_filename %}
+                                        <p class="mui-book-filename">{{ livro.original_filename }}</p>
+                                    {% endif %}
+                                </div>
+                                <div class="mui-book-actions">
+                                    <a href="{{ url_for('reader', file_id=livro.id) }}" class="mui-button mui-button--contained mui-button--primary">
+                                        <span class="mui-icon mui-icon--book-open"></span>
+                                        Ler
+                                    </a>
+                                    <a href="{{ url_for('_func_DownloadEpub', file_id=livro.id) }}" class="mui-button mui-button--outlined">
+                                        <span class="mui-icon mui-icon--download"></span>
+                                        Baixar
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="mui-card__content">
+                                <div class="mui-progress-section">
+                                    <div class="mui-progress-info">
+                                        <span class="mui-progress-text">
+                                            {{ livro.translated_chapters }} de {{ livro.total_chapters }} capítulos traduzidos
+                                        </span>
+                                        <span class="mui-progress-percentage">{{ livro.progress }}%</span>
+                                    </div>
+                                    <div class="mui-progress-bar">
+                                        <div class="mui-progress-fill" style="width: {{ livro.progress }}%"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mui-book-stats">
+                                    <div class="mui-stat-item">
+                                        <span class="mui-icon mui-icon--book"></span>
+                                        <span>{{ livro.total_chapters }} capítulos</span>
+                                    </div>
+                                    <div class="mui-stat-item">
+                                        <span class="mui-icon mui-icon--translate"></span>
+                                        <span>{{ livro.translated_chapters }} traduzidos</span>
+                                    </div>
+                                    {% if livro.upload_date %}
+                                        <div class="mui-stat-item">
+                                            <span class="mui-icon mui-icon--schedule"></span>
+                                            <span>Enviado</span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="mui-empty-state">
+                <div class="mui-empty-state__icon">
+                    <span class="mui-icon mui-icon--book"></span>
+                </div>
+                <h2 class="mui-empty-state__title">Nenhum livro encontrado</h2>
+                <p class="mui-empty-state__description">
+                    Você ainda não enviou nenhum livro para tradução. 
+                    <a href="{{ url_for('index') }}">Clique aqui</a> para fazer o primeiro upload!
+                </p>
+            </div>
+        {% endif %}
+    </section>
+</div>
+
+<!-- Modal de Confirmação para Limpar Todos -->
+<div class="mui-modal" id="clearAllModal" style="display:none;">
+    <div class="mui-modal__overlay"></div>
+    <div class="mui-modal__content">
+        <div class="mui-modal__header">
+            <h2 class="mui-modal__title">
+                <span class="mui-icon mui-icon--warning"></span>
+                Confirmar Limpeza
+            </h2>
+        </div>
+        <div class="mui-modal__body">
+            <p>Tem certeza que deseja remover <strong>todos os livros</strong> da sua biblioteca?</p>
+            <p>Esta ação não pode ser desfeita e todos os dados de tradução serão perdidos.</p>
+        </div>
+        <div class="mui-modal__footer">
+            <button id="cancelClearAll" class="mui-button mui-button--outlined">Cancelar</button>
+            <button id="confirmClearAll" class="mui-button mui-button--contained mui-button--danger">
+                <span class="mui-icon mui-icon--delete"></span>
+                Sim, Limpar Todos
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .mui-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--mui-color-outline-variant);
+    }
+
+    .mui-section-header__content {
+        flex: 1;
+    }
+
+    .mui-section-header__title {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--mui-color-text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .mui-section-header__title .mui-icon {
+        font-size: 1.75rem;
+        color: var(--mui-color-primary);
+    }
+
+    .mui-section-header__subtitle {
+        margin: 0;
+        font-size: 1rem;
+        color: var(--mui-color-text-secondary);
+    }
+
+    .mui-section-header__actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .mui-book-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .mui-book-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .mui-book-cover {
+        width: 60px;
+        height: 80px;
+        flex-shrink: 0;
+        margin-right: 12px;
+        border-radius: 6px;
+        overflow: hidden;
+        background: var(--mui-color-surface-variant);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .mui-book-cover-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .mui-book-cover-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--mui-color-surface-variant);
+        color: var(--mui-color-outline);
+    }
+
+    .mui-book-cover-placeholder .mui-icon {
+        font-size: 2rem;
+    }
+
+    .mui-book-info {
+        flex: 1;
+    }
+
+    .mui-book-title {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--mui-color-text-primary);
+        line-height: 1.3;
+    }
+
+    .mui-book-filename {
+        margin: 0;
+        font-size: 0.875rem;
+        color: var(--mui-color-text-secondary);
+        font-family: monospace;
+        word-break: break-all;
+    }
+
+    .mui-book-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .mui-book-actions .mui-button {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+    }
+
+    .mui-progress-section {
+        margin-bottom: 1rem;
+    }
+
+    .mui-progress-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .mui-progress-text {
+        font-size: 0.875rem;
+        color: var(--mui-color-text-secondary);
+    }
+
+    .mui-progress-percentage {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--mui-color-primary);
+    }
+
+    .mui-progress-bar {
+        width: 100%;
+        height: 8px;
+        background-color: var(--mui-color-surface-variant);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .mui-progress-fill {
+        height: 100%;
+        background-color: var(--mui-color-primary);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    .mui-book-stats {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .mui-stat-item {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.875rem;
+        color: var(--mui-color-text-secondary);
+    }
+
+    .mui-stat-item .mui-icon {
+        font-size: 1rem;
+    }
+
+    .mui-empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+    }
+
+    .mui-empty-state__icon {
+        margin-bottom: 1rem;
+    }
+
+    .mui-empty-state__icon .mui-icon {
+        font-size: 4rem;
+        color: var(--mui-color-outline);
+    }
+
+    .mui-empty-state__title {
+        margin: 0 0 1rem 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--mui-color-text-primary);
+    }
+
+    .mui-empty-state__description {
+        margin: 0;
+        font-size: 1rem;
+        color: var(--mui-color-text-secondary);
+        line-height: 1.5;
+    }
+
+    .mui-empty-state__description a {
+        color: var(--mui-color-primary);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .mui-empty-state__description a:hover {
+        text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+        .mui-book-actions {
+            margin-top: 1rem;
+        }
+        
+        .mui-book-stats {
+            gap: 0.5rem;
+        }
+        
+        .mui-stat-item {
+            font-size: 0.75rem;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .mui-section-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+        
+        .mui-section-header__actions {
+            width: 100%;
+        }
+        
+        .mui-section-header__actions .mui-button {
+            width: 100%;
+        }
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const clearAllBtn = document.getElementById('clearAllBooksBtn');
+    const clearAllModal = document.getElementById('clearAllModal');
+    const cancelClearAll = document.getElementById('cancelClearAll');
+    const confirmClearAll = document.getElementById('confirmClearAll');
+    const modalOverlay = clearAllModal.querySelector('.mui-modal__overlay');
+
+    // Abrir modal
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', function() {
+            clearAllModal.style.display = 'block';
+            clearAllModal.classList.add('mui-modal--open');
+        });
+    }
+
+    // Fechar modal
+    function closeModal() {
+        clearAllModal.classList.remove('mui-modal--open');
+        setTimeout(() => {
+            clearAllModal.style.display = 'none';
+        }, 300);
+    }
+
+    if (cancelClearAll) {
+        cancelClearAll.addEventListener('click', closeModal);
+    }
+
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', closeModal);
+    }
+
+    // Confirmar limpeza
+    if (confirmClearAll) {
+        confirmClearAll.addEventListener('click', function() {
+            // Mostrar loading
+            confirmClearAll.disabled = true;
+            confirmClearAll.innerHTML = '<span class="mui-icon mui-icon--hourglass-empty"></span> Limpando...';
+
+            fetch('/livros/clear-all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Mostrar notificação de sucesso
+                    showNotification(data.message, 'success');
+                    
+                    // Recarregar a página após 2 segundos
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    showNotification(data.error || 'Erro ao limpar livros', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                showNotification('Erro ao limpar livros', 'error');
+            })
+            .finally(() => {
+                // Restaurar botão
+                confirmClearAll.disabled = false;
+                confirmClearAll.innerHTML = '<span class="mui-icon mui-icon--delete"></span> Sim, Limpar Todos';
+                closeModal();
+            });
+        });
+    }
+
+    // Função para mostrar notificações
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `mui-notification mui-notification--${type}`;
+        notification.innerHTML = `
+            <span class="mui-notification__message">${message}</span>
+            <button class="mui-notification__close" onclick="this.parentElement.remove()">
+                <span class="mui-icon mui-icon--close"></span>
+            </button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Remover automaticamente após 5 segundos
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endblock %} 

@@ -7,8 +7,10 @@ Um aplicativo web que traduz seus livros EPUB sem você ter que virar tradutor p
 - **Joga o Livro Aqui**: Arrasta o EPUB e pronto
 - **Tradução na Hora**: O Google faz o trabalho pesado
 - **Seu Dicionário**: Ensina ao sistema como traduzir do seu jeito
+- **Dicionário de Pronúncia**: Define como palavras devem ser pronunciadas no TTS
 - **Interface Sem Frescura**: Design limpo que funciona
 - **Leitor Integrado**: Lê e arruma as traduções direto no navegador
+- **TTS Avançado**: Narração com pronúncia personalizada
 - **Leva Pra Casa**: Baixa o livro traduzido e lê onde quiser
 
 ## 🛠️ Tecnologias Utilizadas
@@ -76,11 +78,17 @@ http://localhost:5000
 - Aplicação de dicionário personalizado
 - Edição manual de traduções
 
-### Dicionário
+### Dicionário de Tradução
 - Adição de entradas personalizadas
 - Busca em tempo real
 - Edição e remoção de entradas
 - Persistência em JSON
+
+### Dicionário de Pronúncia
+- Definição de pronúncias personalizadas
+- Aplicação automática durante narração TTS
+- Suporte a nomes próprios e termos técnicos
+- Importação/exportação de dicionários
 
 ### Leitor
 - Navegação por capítulos
@@ -118,10 +126,12 @@ tradutor_novo/
 │   ├── base.html         # Template base
 │   ├── index.html        # Página inicial
 │   ├── reader.html       # Interface do leitor
-│   └── dicionario.html   # Gerenciamento do dicionário
+│   ├── dicionario.html   # Gerenciamento do dicionário
+│   └── dicionario_pronuncia.html # Dicionário de pronúncia
 ├── uploads/              # Arquivos temporários
 ├── epub_files/           # Conteúdo extraído
-└── dicionario.json       # Dicionário personalizado
+├── dicionario.json       # Dicionário de tradução
+└── dicionario_pronuncia.json # Dicionário de pronúncia
 ```
 
 ## 🔄 Atualizações Recentes
@@ -141,11 +151,14 @@ tradutor_novo/
 
 ## 🚀 Próximas Funcionalidades
 
+- [x] Dicionário de pronúncia para TTS
 - [ ] Suporte a múltiplos idiomas de destino
 - [ ] Histórico de traduções
 - [ ] Exportação em diferentes formatos
 - [ ] Integração com APIs de tradução avançadas
 - [ ] Sistema de usuários e projetos
+- [ ] Vozes TTS personalizadas
+- [ ] Sincronização de dicionários entre dispositivos
 
 ## 📄 Licença
 

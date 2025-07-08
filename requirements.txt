@@ -30,3 +30,5 @@ redis==5.0.1
 
 # Variáveis de ambiente
 python-dotenv==1.0.0 
+
+EbookLib

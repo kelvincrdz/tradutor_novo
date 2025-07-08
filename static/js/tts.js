@@ -1,71 +1,218 @@
 // tts.js
-// Controle do TTS usando Web Speech API
+// Controle do TTS usando Web Speech API com melhorias e correções
 
+// Objeto global do TTS com melhor estrutura
 var_objetoTTS = {
-  sintetizador: window.speechSynthesis,
+  sintetizador: null,
   listaVozes: [],
   vozAtual: null,
   velocidade: 1,
   tom: 1,
   volume: 1,
+  pausaFrase: 400,
+  simbolosPausa: '.?!',
+  leituraEmAndamento: false,
+  leituraPausada: false,
+  callbackAtual: null,
+  timeoutAtual: null,
+  
+  // Inicializar sintetizador
+  inicializar() {
+    if (typeof speechSynthesis !== 'undefined') {
+      this.sintetizador = window.speechSynthesis;
+      this.configurarEventListeners();
+      return true;
+    }
+    console.error('Web Speech API não disponível neste navegador');
+    return false;
+  },
+  
+  // Configurar listeners de eventos
+  configurarEventListeners() {
+    if (!this.sintetizador) return;
+    
+    this.sintetizador.addEventListener('end', () => {
+      this.leituraEmAndamento = false;
+      this.leituraPausada = false;
+      if (this.callbackAtual) {
+        this.callbackAtual();
+        this.callbackAtual = null;
+      }
+    });
+    
+    this.sintetizador.addEventListener('cancel', () => {
+      this.leituraEmAndamento = false;
+      this.leituraPausada = false;
+      this.callbackAtual = null;
+      limparHighlight();
+    });
+    
+    this.sintetizador.addEventListener('error', (event) => {
+      console.error('Erro no TTS:', event.error);
+      this.leituraEmAndamento = false;
+      this.leituraPausada = false;
+      this.callbackAtual = null;
+      limparHighlight();
+      mostrarNotificacao('Erro na leitura de áudio', 'error');
+    });
+    
+    this.sintetizador.addEventListener('pause', () => {
+      this.leituraPausada = true;
+    });
+    
+    this.sintetizador.addEventListener('resume', () => {
+      this.leituraPausada = false;
+    });
+  },
+  
+  // Definir configurações
+  definirVelocidade(valor) {
+    this.velocidade = parseFloat(valor);
+    this.sincronizarControles();
+  },
+  
+  definirTom(valor) {
+    this.tom = parseFloat(valor);
+    this.sincronizarControles();
+  },
+  
+  definirVolume(valor) {
+    this.volume = parseFloat(valor);
+    this.sincronizarControles();
+  },
+  
+  definirPausaFrase(valor) {
+    this.pausaFrase = parseInt(valor);
+  },
+  
+  definirSimbolosPausa(valor) {
+    this.simbolosPausa = valor.replace(/\s+/g, '');
+  },
+  
+  // Sincronizar controles
+  sincronizarControles() {
+    // Controles do leitor principal
+    const controleVelocidade = document.getElementById('controle_velocidade');
+    const valorVelocidade = document.getElementById('valor_velocidade');
+    const controleTom = document.getElementById('controle_tom');
+    const valorTom = document.getElementById('valor_tom');
+    const controleVolume = document.getElementById('controle_volume');
+    const valorVolume = document.getElementById('valor_volume');
+    
+    if (controleVelocidade && valorVelocidade) {
+      controleVelocidade.value = this.velocidade;
+      valorVelocidade.textContent = this.velocidade.toFixed(1);
+    }
+    
+    if (controleTom && valorTom) {
+      controleTom.value = this.tom;
+      valorTom.textContent = this.tom.toFixed(1);
+    }
+    
+    if (controleVolume && valorVolume) {
+      controleVolume.value = this.volume;
+      valorVolume.textContent = this.volume.toFixed(1);
+    }
+    
+    // Controles do player TTS
+    const speedControl = document.getElementById('speedControl');
+    const speedControlValue = document.getElementById('speedControlValue');
+    const pitchControl = document.getElementById('pitchControl');
+    const pitchControlValue = document.getElementById('pitchControlValue');
+    const volumeControl = document.getElementById('volumeControl');
+    const volumeControlValue = document.getElementById('volumeControlValue');
+    
+    if (speedControl && speedControlValue) {
+      speedControl.value = this.velocidade;
+      speedControlValue.textContent = this.velocidade.toFixed(1);
+    }
+    
+    if (pitchControl && pitchControlValue) {
+      pitchControl.value = this.tom;
+      pitchControlValue.textContent = this.tom.toFixed(1);
+    }
+    
+    if (volumeControl && volumeControlValue) {
+      volumeControl.value = this.volume;
+      volumeControlValue.textContent = this.volume.toFixed(1);
+    }
+  },
+
+  updatePauseControl() {
+    if (this.pauseControl && typeof var_objetoTTS !== 'undefined') {
+      const pauseValue = parseInt(this.pauseControl.value);
+      var_objetoTTS.definirPausaFrase(pauseValue);
+      // Salvar no localStorage
+      localStorage.setItem('ttsPauseValue', pauseValue);
+      console.log('Pausa entre frases alterada para:', pauseValue + 'ms');
+    }
+  }
 };
 
-// Variável para controlar se uma leitura está em andamento
-let leituraEmAndamento = false;
+// Adicionar flag para controlar se a voz foi selecionada manualmente
+var vozSelecionadaManual = false;
 
-// Importação dinâmica de franc-min para detecção de idioma
-let franc;
-(async () => {
-  if (typeof window.franc === 'undefined') {
-    const module = await import('/node_modules/franc-min/index.js');
-    franc = module.franc;
-  } else {
-    franc = window.franc;
-  }
-})();
+// Flag para controlar se está lendo
+var leituraEmAndamento = false;
 
-// Mapeamento de idiomas para vozes
+// Função para detectar idioma sem mudar a voz automaticamente
 function detectarIdioma(texto) {
-  if (!franc) return 'pt';
-  const lang = franc(texto);
-  // Mapeamento básico
-  if (lang === 'eng') return 'en-US';
-  if (lang === 'spa') return 'es-ES';
-  if (lang === 'fra') return 'fr-FR';
-  if (lang === 'deu') return 'de-DE';
-  if (lang === 'ita') return 'it-IT';
-  if (lang === 'por') return 'pt-BR';
-  return 'pt-BR';
+  if (!texto) return 'pt-BR';
+  
+  // Análise simples baseada em caracteres comuns
+  const caracteresPortugues = /[áàâãéèêíìîóòôõúùûç]/gi;
+  const caracteresIngleses = /[a-z]/gi;
+  
+  const portugues = (texto.match(caracteresPortugues) || []).length;
+  const ingles = (texto.match(caracteresIngleses) || []).length;
+  
+  if (portugues > ingles * 0.1) {
+    return 'pt-BR';
+  } else if (ingles > 0) {
+    return 'en-US';
+  }
+  
+  return 'pt-BR'; // Padrão
 }
 
 function selecionarVozPorIdioma(idioma) {
+  // Só selecionar voz automaticamente se não foi selecionada manualmente
+  if (vozSelecionadaManual) return;
+  
   if (!var_objetoTTS.listaVozes.length) return;
-  const voz = var_objetoTTS.listaVozes.find(v => v.lang && v.lang.startsWith(idioma));
-  if (voz) var_objetoTTS.vozAtual = voz;
+  
+  // Procurar por voz específica do idioma
+  let voz = var_objetoTTS.listaVozes.find(v => v.lang && v.lang.startsWith(idioma));
+  
+  // Se não encontrar, procurar por qualquer voz do idioma
+  if (!voz) {
+    voz = var_objetoTTS.listaVozes.find(v => v.lang && v.lang.includes(idioma.split('-')[0]));
+  }
+  
+  // Se ainda não encontrar, usar a primeira voz disponível
+  if (!voz && var_objetoTTS.listaVozes.length > 0) {
+    voz = var_objetoTTS.listaVozes[0];
+  }
+  
+  if (voz) {
+    var_objetoTTS.vozAtual = voz;
+    atualizarSeletoresVoz();
+  }
 }
 
-// Adicionar flag para saber se a voz foi selecionada manualmente
-var vozSelecionadaManual = false;
-
-// Listeners para detectar quando a leitura é interrompida
-if (typeof speechSynthesis !== 'undefined') {
-  speechSynthesis.addEventListener('end', function() {
-    leituraEmAndamento = false;
-  });
-  
-  speechSynthesis.addEventListener('cancel', function() {
-    leituraEmAndamento = false;
-    limparHighlight();
-  });
-  
-  speechSynthesis.addEventListener('error', function() {
-    leituraEmAndamento = false;
-    limparHighlight();
-  });
-}
+// Remover listeners antigos - agora gerenciados pelo objeto var_objetoTTS
 
 function inicializarTTS() {
+  // Inicializar sintetizador
+  if (!var_objetoTTS.inicializar()) {
+    mostrarNotificacao('TTS não disponível neste navegador', 'error');
+    return;
+  }
+  
+  // Carregar vozes
   carregarVozesTTS();
+  
+  // Configurar controles do leitor principal
   const seletorVoz = document.getElementById('seletor_voz');
   const botaoTesteVoz = document.getElementById('botao_teste_voz');
   const controleVelocidade = document.getElementById('controle_velocidade');
@@ -75,100 +222,196 @@ function inicializarTTS() {
   const botaoPausarLeitura = document.getElementById('botao_pausar_leitura');
   const botaoPararLeitura = document.getElementById('botao_parar_leitura');
 
-  if (!seletorVoz || !botaoTesteVoz || !controleVelocidade || !controleTom || !controleVolume || !botaoIniciarLeitura || !botaoPausarLeitura || !botaoPararLeitura) {
-    console.error('Um ou mais elementos de controle do TTS não foram encontrados no DOM.');
-    return;
-  }
-
-  seletorVoz.addEventListener('change', selecionarVozTTS);
-  botaoTesteVoz.addEventListener('click', testarVozTTS);
-  controleVelocidade.addEventListener('input', ajustarVelocidadeTTS);
-  controleTom.addEventListener('input', ajustarTomTTS);
-  controleVolume.addEventListener('input', ajustarVolumeTTS);
-  botaoIniciarLeitura.addEventListener('click', iniciarLeituraCapituloAtualETTS);
-  botaoPausarLeitura.addEventListener('click', pausarLeituraTTS);
-  botaoPararLeitura.addEventListener('click', pararLeituraTTS);
+  if (seletorVoz) seletorVoz.addEventListener('change', selecionarVozTTS);
+  if (botaoTesteVoz) botaoTesteVoz.addEventListener('click', testarVozTTS);
+  if (controleVelocidade) controleVelocidade.addEventListener('input', ajustarVelocidadeTTS);
+  if (controleTom) controleTom.addEventListener('input', ajustarTomTTS);
+  if (controleVolume) controleVolume.addEventListener('input', ajustarVolumeTTS);
+  if (botaoIniciarLeitura) botaoIniciarLeitura.addEventListener('click', iniciarLeituraCapituloAtualETTS);
+  if (botaoPausarLeitura) botaoPausarLeitura.addEventListener('click', pausarLeituraTTS);
+  if (botaoPararLeitura) botaoPararLeitura.addEventListener('click', pararLeituraTTS);
   
   // Inicializar funcionalidade de toggle dos controles
   inicializarToggleTTS();
+  
+  // Sincronizar controles
+  var_objetoTTS.sincronizarControles();
+  
+  console.log('TTS inicializado com sucesso');
 }
 
 function carregarVozesTTS() {
+  if (!var_objetoTTS.sintetizador) return;
+  
+  // Tentar carregar vozes imediatamente
   var_objetoTTS.listaVozes = var_objetoTTS.sintetizador.getVoices();
-  var seletor = document.getElementById('seletor_voz');
-  seletor.innerHTML = '';
-  var_objetoTTS.listaVozes.forEach(function(voz, idx) {
-    var opt = document.createElement('option');
-    opt.value = idx;
-    opt.textContent = voz.name + (voz.lang ? ' (' + voz.lang + ')' : '');
-    seletor.appendChild(opt);
-  });
-  if (var_objetoTTS.listaVozes.length > 0) {
-    seletor.selectedIndex = 0;
-    var_objetoTTS.vozAtual = var_objetoTTS.listaVozes[0];
-    vozSelecionadaManual = false;
+  
+  // Se não há vozes, aguardar o evento onvoiceschanged
+  if (var_objetoTTS.listaVozes.length === 0) {
+    var_objetoTTS.sintetizador.onvoiceschanged = () => {
+      var_objetoTTS.listaVozes = var_objetoTTS.sintetizador.getVoices();
+      preencherSeletoresVoz();
+    };
+  } else {
+    preencherSeletoresVoz();
   }
 }
 
-if (typeof speechSynthesis !== 'undefined') {
-  speechSynthesis.onvoiceschanged = carregarVozesTTS;
+function preencherSeletoresVoz() {
+  // Preencher seletor do leitor principal
+  const seletor = document.getElementById('seletor_voz');
+  if (seletor) {
+    seletor.innerHTML = '';
+    var_objetoTTS.listaVozes.forEach((voz, idx) => {
+      const opt = document.createElement('option');
+      opt.value = idx;
+      opt.textContent = `${voz.name} (${voz.lang || 'N/A'})`;
+      seletor.appendChild(opt);
+    });
+    
+    // Carregar voz salva ou selecionar a primeira
+    const savedVoice = localStorage.getItem('ttsSelectedVoice');
+    if (savedVoice && var_objetoTTS.listaVozes.length > 0) {
+      const voiceIndex = parseInt(savedVoice);
+      if (voiceIndex >= 0 && voiceIndex < var_objetoTTS.listaVozes.length) {
+        seletor.selectedIndex = voiceIndex;
+        var_objetoTTS.vozAtual = var_objetoTTS.listaVozes[voiceIndex];
+        vozSelecionadaManual = true;
+      } else {
+        seletor.selectedIndex = 0;
+        var_objetoTTS.vozAtual = var_objetoTTS.listaVozes[0];
+        vozSelecionadaManual = false;
+      }
+    } else if (var_objetoTTS.listaVozes.length > 0) {
+      seletor.selectedIndex = 0;
+      var_objetoTTS.vozAtual = var_objetoTTS.listaVozes[0];
+      vozSelecionadaManual = false;
+    }
+  }
+  
+  // Preencher seletor do player TTS
+  const voiceSelect = document.getElementById('voiceSelect');
+  if (voiceSelect) {
+    voiceSelect.innerHTML = '';
+    var_objetoTTS.listaVozes.forEach((voz, idx) => {
+      const opt = document.createElement('option');
+      opt.value = idx;
+      opt.textContent = `${voz.name} (${voz.lang || 'N/A'})`;
+      voiceSelect.appendChild(opt);
+    });
+    
+    // Carregar voz salva ou selecionar a primeira
+    const savedVoice = localStorage.getItem('ttsSelectedVoice');
+    if (savedVoice && var_objetoTTS.listaVozes.length > 0) {
+      const voiceIndex = parseInt(savedVoice);
+      if (voiceIndex >= 0 && voiceIndex < var_objetoTTS.listaVozes.length) {
+        voiceSelect.selectedIndex = voiceIndex;
+        var_objetoTTS.vozAtual = var_objetoTTS.listaVozes[voiceIndex];
+        vozSelecionadaManual = true;
+      } else {
+        voiceSelect.selectedIndex = 0;
+        var_objetoTTS.vozAtual = var_objetoTTS.listaVozes[0];
+        vozSelecionadaManual = false;
+      }
+    } else if (var_objetoTTS.listaVozes.length > 0) {
+      voiceSelect.selectedIndex = 0;
+      var_objetoTTS.vozAtual = var_objetoTTS.listaVozes[0];
+      vozSelecionadaManual = false;
+    }
+  }
+  
+  console.log(`${var_objetoTTS.listaVozes.length} vozes carregadas`);
+}
+
+function atualizarSeletoresVoz() {
+  if (!var_objetoTTS.vozAtual) return;
+  
+  const seletor = document.getElementById('seletor_voz');
+  const voiceSelect = document.getElementById('voiceSelect');
+  
+  const indice = var_objetoTTS.listaVozes.indexOf(var_objetoTTS.vozAtual);
+  
+  if (seletor && indice >= 0) {
+    seletor.value = indice;
+  }
+  
+  if (voiceSelect && indice >= 0) {
+    voiceSelect.value = indice;
+  }
 }
 
 function selecionarVozTTS() {
-  var seletor = document.getElementById('seletor_voz');
-  var idx = seletor.value;
-  var_objetoTTS.vozAtual = var_objetoTTS.listaVozes[idx];
-  vozSelecionadaManual = true;
-  // Parar leitura atual e reiniciar com a nova voz, se estiver lendo
-  if (var_objetoTTS.sintetizador.speaking) {
-    var_objetoTTS.sintetizador.cancel();
-    const texto = obterTextoParaLeituraTTS();
-    if (texto) lerTextoTTS(texto);
+  const seletor = document.getElementById('seletor_voz');
+  if (!seletor) return;
+  
+  const idx = parseInt(seletor.value);
+  if (idx >= 0 && idx < var_objetoTTS.listaVozes.length) {
+    var_objetoTTS.vozAtual = var_objetoTTS.listaVozes[idx];
+    vozSelecionadaManual = true;
+    atualizarSeletoresVoz();
+    
+    // Salvar a seleção no localStorage
+    localStorage.setItem('ttsSelectedVoice', idx);
+    
+    // Se estiver lendo, aplicar a nova voz imediatamente sem parar
+    if (var_objetoTTS.sintetizador && var_objetoTTS.sintetizador.speaking) {
+      // Aplicar a nova voz ao próximo trecho que será lido
+      // Não cancelar a leitura atual, apenas atualizar a configuração
+      console.log('Voz alterada em tempo real para:', var_objetoTTS.vozAtual.name);
+    }
   }
 }
 
 function testarVozTTS() {
-  var fala = new SpeechSynthesisUtterance('Esta é uma amostra da voz selecionada.');
+  if (!var_objetoTTS.vozAtual) {
+    mostrarNotificacao('Nenhuma voz selecionada', 'error');
+    return;
+  }
+  
+  const fala = new SpeechSynthesisUtterance('Esta é uma amostra da voz selecionada para teste.');
   fala.voice = var_objetoTTS.vozAtual;
   fala.rate = var_objetoTTS.velocidade;
   fala.pitch = var_objetoTTS.tom;
   fala.volume = var_objetoTTS.volume;
+  
   var_objetoTTS.sintetizador.cancel();
   var_objetoTTS.sintetizador.speak(fala);
+  
+  mostrarNotificacao('Testando voz...', 'info');
 }
 
 function ajustarVelocidadeTTS() {
-  var val = parseFloat(document.getElementById('controle_velocidade').value);
-  var_objetoTTS.velocidade = val;
-  document.getElementById('valor_velocidade').textContent = val.toFixed(1);
+  const controle = document.getElementById('controle_velocidade');
+  const valor = document.getElementById('valor_velocidade');
+  
+  if (controle && valor) {
+    const val = parseFloat(controle.value);
+    var_objetoTTS.definirVelocidade(val);
+  }
 }
 
 function ajustarTomTTS() {
-  var val = parseFloat(document.getElementById('controle_tom').value);
-  var_objetoTTS.tom = val;
-  document.getElementById('valor_tom').textContent = val.toFixed(1);
+  const controle = document.getElementById('controle_tom');
+  const valor = document.getElementById('valor_tom');
+  
+  if (controle && valor) {
+    const val = parseFloat(controle.value);
+    var_objetoTTS.definirTom(val);
+  }
 }
 
 function ajustarVolumeTTS() {
-  var val = parseFloat(document.getElementById('controle_volume').value);
-  var_objetoTTS.volume = val;
-  document.getElementById('valor_volume').textContent = val.toFixed(1);
+  const controle = document.getElementById('controle_volume');
+  const valor = document.getElementById('valor_volume');
+  
+  if (controle && valor) {
+    const val = parseFloat(controle.value);
+    var_objetoTTS.definirVolume(val);
+  }
 }
 
-function sincronizarControlesTTS() {
-  document.getElementById('controle_velocidade').value = var_objetoTTS.velocidade;
-  document.getElementById('valor_velocidade').textContent = var_objetoTTS.velocidade.toFixed(1);
-  document.getElementById('controle_tom').value = var_objetoTTS.tom;
-  document.getElementById('valor_tom').textContent = var_objetoTTS.tom.toFixed(1);
-  document.getElementById('controle_volume').value = var_objetoTTS.volume;
-  document.getElementById('valor_volume').textContent = var_objetoTTS.volume.toFixed(1);
-}
-
-var _antigoInicializarTTS = inicializarTTS;
-inicializarTTS = function() {
-  _antigoInicializarTTS();
-  sincronizarControlesTTS();
-};
+// Função sincronizarControlesTTS agora é um método do objeto var_objetoTTS
+// Remover wrapper desnecessário
 
 function aplicarSubstituicoesInteligentes(texto) {
   // Substituições para o áudio, sem alterar o texto visual
@@ -185,7 +428,7 @@ function aplicarSubstituicoesInteligentes(texto) {
     texto = texto.replace(regex, valor);
   });
   // Pausas de pontuação: usa valor do input e símbolos personalizados
-  let pausa = 400;
+  let pausa = var_objetoTTS.pausaFrase || 400;
   const inputPausa = document.getElementById('controle_pausa_frase');
   if (inputPausa) {
     const val = parseInt(inputPausa.value);
@@ -357,8 +600,16 @@ function lerFraseComEnfase(frase, onend) {
   function lerParte() {
     if (idx >= partes.length) { onend && onend(); return; }
     const parte = partes[idx];
-    let fala = new SpeechSynthesisUtterance(aplicarSubstituicoesInteligentes(parte.texto));
-    fala.voice = var_objetoTTS.vozAtual;
+    let textoProcessado = aplicarSubstituicoesInteligentes(parte.texto);
+    textoProcessado = aplicarPausasVisuais(textoProcessado);
+    
+    let fala = new SpeechSynthesisUtterance(textoProcessado);
+    
+    // Sempre usar a voz atual configurada
+    if (var_objetoTTS.vozAtual) {
+      fala.voice = var_objetoTTS.vozAtual;
+    }
+    
     fala.rate = var_objetoTTS.velocidade;
     fala.pitch = parte.enfase ? var_objetoTTS.tom + 0.5 : var_objetoTTS.tom;
     fala.volume = parte.enfase ? Math.min(var_objetoTTS.volume + 0.2, 2) : var_objetoTTS.volume;
@@ -371,9 +622,11 @@ function lerFraseComEnfase(frase, onend) {
 // Leitura por frase com highlight, detecção de idioma, ênfase e modo contínuo/página
 function lerTextoTTS(texto, callbackAoFinal) {
   // Verificar se já está lendo e cancelar se necessário
-  if (leituraEmAndamento || var_objetoTTS.sintetizador.speaking) {
-    var_objetoTTS.sintetizador.cancel();
-    leituraEmAndamento = false;
+  if (var_objetoTTS.leituraEmAndamento || (var_objetoTTS.sintetizador && var_objetoTTS.sintetizador.speaking)) {
+    if (var_objetoTTS.sintetizador) {
+      var_objetoTTS.sintetizador.cancel();
+    }
+    var_objetoTTS.leituraEmAndamento = false;
     // Aguardar um pouco para garantir que a leitura anterior foi completamente parada
     setTimeout(() => {
       lerTextoTTS(texto, callbackAoFinal);
@@ -387,8 +640,16 @@ function lerTextoTTS(texto, callbackAoFinal) {
     return;
   }
   
+  // Verificar se o TTS está disponível
+  if (!var_objetoTTS.sintetizador) {
+    mostrarNotificacao('TTS não disponível', 'error');
+    if (typeof callbackAoFinal === 'function') callbackAoFinal();
+    return;
+  }
+  
   // Marcar que a leitura está em andamento
-  leituraEmAndamento = true;
+  var_objetoTTS.leituraEmAndamento = true;
+  var_objetoTTS.callbackAtual = callbackAoFinal;
   
   // Divide em parágrafos e frases
   const paragrafos = texto.split(/\n+/).filter(Boolean);
@@ -430,15 +691,19 @@ function lerTextoTTS(texto, callbackAoFinal) {
       // Destacar a frase atual
       destacarFrase(frase);
       
-      // Detecção de idioma
-      const idioma = detectarIdioma(frase);
+      // Detecção de idioma apenas se a voz não foi selecionada manualmente
       if (!vozSelecionadaManual) {
+        const idioma = detectarIdioma(frase);
         selecionarVozPorIdioma(idioma);
       }
       
       lerFraseComEnfase(frase, function() {
         idxFraseAtual++;
-        lerFrase();
+        // Aplicar pausa configurada entre frases
+        const pausaConfigurada = var_objetoTTS.pausaFrase || 400;
+        setTimeout(() => {
+          lerFrase();
+        }, pausaConfigurada);
       });
     }
     
@@ -551,21 +816,30 @@ function inicializarToggleTTS() {
 }
 
 function pausarLeituraTTS() {
-  if (var_objetoTTS.sintetizador.speaking && !var_objetoTTS.sintetizador.paused) {
+  if (var_objetoTTS.sintetizador && var_objetoTTS.sintetizador.speaking && !var_objetoTTS.sintetizador.paused) {
     var_objetoTTS.sintetizador.pause();
+    var_objetoTTS.leituraPausada = true;
+    mostrarNotificacao('Leitura pausada', 'info');
   }
 }
 
 function retomarLeituraTTS() {
-  if (var_objetoTTS.sintetizador.paused) {
+  if (var_objetoTTS.sintetizador && var_objetoTTS.sintetizador.paused) {
     var_objetoTTS.sintetizador.resume();
+    var_objetoTTS.leituraPausada = false;
+    mostrarNotificacao('Leitura retomada', 'info');
   }
 }
 
 function pararLeituraTTS() {
-  var_objetoTTS.sintetizador.cancel();
-  leituraEmAndamento = false;
+  if (var_objetoTTS.sintetizador) {
+    var_objetoTTS.sintetizador.cancel();
+  }
+  var_objetoTTS.leituraEmAndamento = false;
+  var_objetoTTS.leituraPausada = false;
+  var_objetoTTS.callbackAtual = null;
   limparHighlight();
+  mostrarNotificacao('Leitura parada', 'info');
 }
 
 function obterTextoParaLeituraTTS() {
@@ -784,4 +1058,56 @@ function iniciarLeituraCapituloAtualETTS() {
       }
     }
   });
+}
+
+// Função para mostrar notificações
+function mostrarNotificacao(mensagem, tipo = 'info') {
+  // Criar elemento de notificação
+  const notificacao = document.createElement('div');
+  notificacao.className = `mui-notification mui-notification--${tipo}`;
+  notificacao.innerHTML = `
+    <span class="mui-icon mui-icon--${tipo === 'error' ? 'error' : tipo === 'success' ? 'check_circle' : 'info'}"></span>
+    <span class="mui-notification__message">${mensagem}</span>
+  `;
+  
+  // Adicionar ao DOM
+  document.body.appendChild(notificacao);
+  
+  // Mostrar com animação
+  setTimeout(() => notificacao.classList.add('mui-notification--show'), 100);
+  
+  // Remover após 3 segundos
+  setTimeout(() => {
+    notificacao.classList.remove('mui-notification--show');
+    setTimeout(() => {
+      if (notificacao.parentNode) {
+        notificacao.parentNode.removeChild(notificacao);
+      }
+    }, 300);
+  }, 3000);
+}
+
+// Função para resetar seleção manual (útil para voltar à detecção automática)
+function resetarSelecaoManual() {
+  vozSelecionadaManual = false;
+  localStorage.removeItem('ttsSelectedVoice');
+  console.log('Seleção manual resetada - voltando à detecção automática de idioma');
+}
+
+// Função para forçar seleção manual
+function forcarSelecaoManual() {
+  vozSelecionadaManual = true;
+  console.log('Seleção manual forçada - detecção automática desabilitada');
+}
+
+// Função para aplicar pausas visuais no texto
+function aplicarPausasVisuais(texto) {
+  if (!var_objetoTTS.simbolosPausa) return texto;
+  
+  const simbolos = var_objetoTTS.simbolosPausa;
+  const escapedSymbols = simbolos.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const regexSimbolos = new RegExp(`([${escapedSymbols}])`, 'g');
+  
+  // Adicionar espaços após símbolos de pausa para melhor legibilidade
+  return texto.replace(regexSimbolos, '$1 ');
 } 

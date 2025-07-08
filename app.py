@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, flash
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, flash, make_response
 from werkzeug.utils import secure_filename
 import os
 import json
@@ -12,6 +12,8 @@ import uuid
 from datetime import datetime
 import hashlib
 import markdown
+from ebooklib import epub
+from bs4 import BeautifulSoup, NavigableString, Tag
 
 app = Flask(__name__)
 app.secret_key = 'sua_chave_secreta_aqui'
@@ -20,6 +22,7 @@ app.secret_key = 'sua_chave_secreta_aqui'
 PASTA_UPLOADS = 'uploads'
 EPUB_PASTA = 'epub_files'
 DIC_FILE = 'dicionario.json'
+DIC_PRONUNCIA_FILE = 'dicionario_pronuncia.json'
 PERMITIR_EXTENCAO = {'epub'}
 
 # Criar diretórios se não existirem
@@ -36,6 +39,66 @@ def _func_ObterHashArquivo(var_strCaminho):
         for var_strChunk in iter(lambda: var_objArquivo.read(4096), b""):
             var_objHashMD5.update(var_strChunk)
     return var_objHashMD5.hexdigest()
+
+def _func_ExtrairCapaEpub(var_objEpub, var_objSoupOPF, var_strDiretorioOPF):
+    """Extrai a capa do EPUB e retorna como base64"""
+    try:
+        # Procurar pela capa no manifesto
+        var_objManifesto = var_objSoupOPF.find('manifest')
+        if not var_objManifesto:
+            return None
+        
+        # Procurar por item com id="cover" ou propriedades de capa
+        var_strCaminhoCapa = None
+        for var_objItem in var_objManifesto.find_all('item'):
+            var_strId = var_objItem.get('id', '')
+            var_strHref = var_objItem.get('href', '')
+            var_strMediaType = var_objItem.get('media-type', '')
+            
+            # Verificar se é uma imagem de capa
+            if (var_strId.lower() in ['cover', 'cover-image', 'coverimage'] or
+                'cover' in var_strHref.lower() or
+                var_strMediaType.startswith('image/')):
+                var_strCaminhoCapa = var_strHref
+                break
+        
+        # Se não encontrou capa específica, procurar por qualquer imagem
+        if not var_strCaminhoCapa:
+            for var_objItem in var_objManifesto.find_all('item'):
+                var_strMediaType = var_objItem.get('media-type', '')
+                if var_strMediaType.startswith('image/'):
+                    var_strCaminhoCapa = var_objItem.get('href', '')
+                    break
+        
+        if var_strCaminhoCapa:
+            # Construir caminho completo
+            if not var_strCaminhoCapa.startswith('http'):
+                if var_strDiretorioOPF:
+                    var_strCaminhoCapa = f"{var_strDiretorioOPF}/{var_strCaminhoCapa}"
+            
+            # Ler a imagem
+            var_bytesImagem = var_objEpub.read(var_strCaminhoCapa)
+            
+            # Determinar o tipo MIME
+            var_strExtensao = os.path.splitext(var_strCaminhoCapa)[1].lower()
+            var_strMimeType = {
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.png': 'image/png',
+                '.gif': 'image/gif',
+                '.webp': 'image/webp'
+            }.get(var_strExtensao, 'image/jpeg')
+            
+            # Converter para base64
+            import base64
+            var_strBase64 = base64.b64encode(var_bytesImagem).decode('utf-8')
+            return f"data:{var_strMimeType};base64,{var_strBase64}"
+        
+        return None
+        
+    except Exception as var_objErro:
+        print(f"Erro ao extrair capa: {var_objErro}")
+        return None
 
 def _func_EncontrarEpubPorHash(var_strHashArquivo):
     """Procura por um EPUB existente com o mesmo hash"""
@@ -67,12 +130,25 @@ def _func_SalvarDicionario(var_dicDicionario):
     with open(DIC_FILE, 'w', encoding='utf-8') as var_objArquivo:
         json.dump(var_dicDicionario, var_objArquivo, ensure_ascii=False, indent=2)
 
+def _func_CarregarDicionarioPronuncia():
+    """Carrega o dicionário de pronúncia personalizado"""
+    if os.path.exists(DIC_PRONUNCIA_FILE):
+        with open(DIC_PRONUNCIA_FILE, 'r', encoding='utf-8') as var_objArquivo:
+            return json.load(var_objArquivo)
+    return {}
+
+def _func_SalvarDicionarioPronuncia(var_dicDicionario):
+    """Salva o dicionário de pronúncia personalizado"""
+    with open(DIC_PRONUNCIA_FILE, 'w', encoding='utf-8') as var_objArquivo:
+        json.dump(var_dicDicionario, var_objArquivo, ensure_ascii=False, indent=2)
+
 def _func_ExtrairConteudoEpub(var_strCaminhoEpub):
     """Extrai o conteúdo de um arquivo EPUB"""
     var_dicConteudo = {
         'title': '',
         'chapters': [],
-        'metadata': {}
+        'metadata': {},
+        'cover': None
     }
     
     try:
@@ -93,6 +169,9 @@ def _func_ExtrairConteudoEpub(var_strCaminhoEpub):
             
             # Encontrar o diretório base
             var_strDiretorioOPF = os.path.dirname(var_strCaminhoOPF)
+            
+            # Extrair capa do livro
+            var_dicConteudo['cover'] = _func_ExtrairCapaEpub(var_objEpub, var_objSoupOPF, var_strDiretorioOPF)
             
             # Procurar toc.ncx e nav.xhtml
             var_strCaminhoTOCNCX = None
@@ -115,6 +194,7 @@ def _func_ExtrairConteudoEpub(var_strCaminhoEpub):
                         toc_ncx_titles.append(text)
                 except Exception as e:
                     print(f'Erro ao ler toc.ncx: {e}')
+                
             # 2. Extrair nomes do nav.xhtml
             nav_xhtml_titles = []
             if var_strCaminhoNavXHTML:
@@ -180,29 +260,55 @@ def _func_ExtrairConteudoEpub(var_strCaminhoEpub):
                         var_strTexto = var_strTexto.strip()
                         var_strTexto = re.sub(r'\n{3,}', '\n\n', var_strTexto)
                         var_strTexto = re.sub(r'\n([^\-\n])', r'\n\1', var_strTexto)
-                        # 3. Buscar título no conteúdo (primeiro h1 ou h2)
+                        # Hierarquia de prioridade para nomes de capítulos:
+                        # 1. toc.ncx (prioridade mais alta)
+                        # 2. nav.xhtml
+                        # 3. Arquivo XHTML (h1 ou h2)
+                        # 4. Nome padrão
                         cap_title = None
-                        h1 = var_objSoupHTML.find('h1')
-                        h2 = var_objSoupHTML.find('h2')
-                        if h1 and h1.text.strip():
-                            cap_title = h1.text.strip()
-                        elif h2 and h2.text.strip():
-                            cap_title = h2.text.strip()
-                        # 1. Prioridade toc.ncx
+                        
+                        # 1. Prioridade toc.ncx - usar correspondência por índice
+                        cap_title = None
                         if var_intIndice < len(toc_ncx_titles) and toc_ncx_titles[var_intIndice]:
                             cap_title = toc_ncx_titles[var_intIndice]
-                        # 2. Prioridade nav.xhtml
+                        # 2. Prioridade nav.xhtml - usar correspondência por índice
                         elif var_intIndice < len(nav_xhtml_titles) and nav_xhtml_titles[var_intIndice]:
                             cap_title = nav_xhtml_titles[var_intIndice]
-                        # 4. Nome padrão
+                        
+                        # 3. Buscar título no conteúdo (primeiro h1 ou h2)
+                        if not cap_title:
+                            h1 = var_objSoupHTML.find('h1')
+                            h2 = var_objSoupHTML.find('h2')
+                            if h1 and h1.text.strip():
+                                cap_title = h1.text.strip()
+                            elif h2 and h2.text.strip():
+                                cap_title = h2.text.strip()
+                        
+                        # 4. Nome padrão (fallback)
                         if not cap_title:
                             cap_title = f'Capítulo {var_intIndice+1}'
                         if var_strTexto.strip():
+                            # Extrair imagens do capítulo
+                            var_listImagens = []
+                            for var_objImg in var_objSoupHTML.find_all('img'):
+                                var_strSrc = var_objImg.get('src')
+                                if var_strSrc:
+                                    # Processar caminho da imagem
+                                    if not var_strSrc.startswith('http'):
+                                        if var_strDiretorioOPF:
+                                            var_strSrc = f"{var_strDiretorioOPF}/{var_strSrc}"
+                                    var_listImagens.append({
+                                        'src': var_strSrc,
+                                        'alt': var_objImg.get('alt', ''),
+                                        'title': var_objImg.get('title', '')
+                                    })
+                            
                             var_dicConteudo['chapters'].append({
                                 'id': var_intIndice,
                                 'title': cap_title,
                                 'content': var_strTexto,
-                                'html_content': str(var_objSoupHTML)
+                                'html_content': str(var_objSoupHTML),
+                                'images': var_listImagens
                             })
                     except Exception as var_objErro:
                         print(f"Erro ao processar arquivo {var_strArquivoHTML}: {var_objErro}")
@@ -319,6 +425,24 @@ def _func_AplicarDicionario(var_strTexto, var_dicDicionario):
         
         # Fazer a substituição usando regex com flag case-insensitive
         var_strTexto = re.sub(var_strPadrao, var_strTraducao, var_strTexto, flags=re.IGNORECASE)
+    
+    return var_strTexto
+
+def _func_AplicarDicionarioPronuncia(var_strTexto, var_dicDicionario):
+    """Aplica o dicionário de pronúncia personalizado ao texto"""
+    import re
+    
+    # Ordenar as entradas do dicionário por tamanho (mais longas primeiro)
+    # para evitar que expressões menores substituam partes de expressões maiores
+    var_listEntradasOrdenadas = sorted(var_dicDicionario.items(), key=lambda x: len(x[0]), reverse=True)
+    
+    for var_strOriginal, var_strPronuncia in var_listEntradasOrdenadas:
+        # Criar um padrão regex que busca a palavra/expressão exata
+        # \b garante que estamos no início/fim de uma palavra
+        var_strPadrao = r'\b' + re.escape(var_strOriginal) + r'\b'
+        
+        # Fazer a substituição usando regex com flag case-insensitive
+        var_strTexto = re.sub(var_strPadrao, var_strPronuncia, var_strTexto, flags=re.IGNORECASE)
     
     return var_strTexto
 
@@ -497,6 +621,16 @@ def _func_Traduzir():
                     var_dicConteudo['chapters'][var_intIndiceCapitulo]['original_content'] = var_dicConteudo['chapters'][var_intIndiceCapitulo]['content']
                     var_dicConteudo['chapters'][var_intIndiceCapitulo]['content'] = var_strTextoTraduzido
                     
+                    # Traduzir também o título do capítulo
+                    var_strTituloOriginal = var_dicConteudo['chapters'][var_intIndiceCapitulo].get('original_title', var_dicConteudo['chapters'][var_intIndiceCapitulo]['title'])
+                    if not var_dicConteudo['chapters'][var_intIndiceCapitulo].get('original_title'):
+                        var_dicConteudo['chapters'][var_intIndiceCapitulo]['original_title'] = var_strTituloOriginal
+                    
+                    # Traduzir o título
+                    var_strTituloTraduzido = _func_TraduzirTexto(var_strTituloOriginal, var_strIdiomaOrigem, var_strIdiomaDestino)
+                    var_dicConteudo['chapters'][var_intIndiceCapitulo]['translated_title'] = var_strTituloTraduzido
+                    var_dicConteudo['chapters'][var_intIndiceCapitulo]['title'] = var_strTituloTraduzido
+                    
                     # Salvar arquivo atualizado
                     with open(var_strCaminhoArquivoAtual, 'w', encoding='utf-8') as var_objArquivoEscrita:
                         json.dump(var_dicConteudo, var_objArquivoEscrita, ensure_ascii=False, indent=2)
@@ -533,6 +667,16 @@ def _func_TraduzirTodosCapitulos(file_id):
             var_dicCapitulo['translated_content'] = var_strTextoTraduzido
             var_dicCapitulo['original_content'] = var_dicCapitulo['content']
             var_dicCapitulo['content'] = var_strTextoTraduzido
+            
+            # Traduzir também o título do capítulo
+            var_strTituloOriginal = var_dicCapitulo.get('original_title', var_dicCapitulo['title'])
+            if not var_dicCapitulo.get('original_title'):
+                var_dicCapitulo['original_title'] = var_strTituloOriginal
+            
+            # Traduzir o título
+            var_strTituloTraduzido = _func_TraduzirTexto(var_strTituloOriginal, 'auto', 'pt')
+            var_dicCapitulo['translated_title'] = var_strTituloTraduzido
+            var_dicCapitulo['title'] = var_strTituloTraduzido
             
             var_intContadorTraduzidos += 1
         
@@ -661,41 +805,372 @@ def _func_LimparDicionario():
     except Exception as var_objErro:
         return jsonify({'success': False, 'error': f'Erro ao limpar dicionário: {str(var_objErro)}'})
 
+@app.route('/dicionario-pronuncia')
+def _func_PaginaDicionarioPronuncia():
+    """Página do dicionário de pronúncia"""
+    var_dicDicionario = _func_CarregarDicionarioPronuncia()
+    return render_template('dicionario_pronuncia.html', dicionario=var_dicDicionario)
+
+@app.route('/dicionario-pronuncia/add', methods=['POST'])
+def _func_AdicionarEntradaDicionarioPronuncia():
+    """Adiciona uma entrada ao dicionário de pronúncia"""
+    try:
+        var_dicDados = request.get_json()
+        var_strPalavra = var_dicDados.get('palavra', '').strip()
+        var_strPronuncia = var_dicDados.get('pronuncia', '').strip()
+        
+        if not var_strPalavra or not var_strPronuncia:
+            return jsonify({'success': False, 'error': 'Palavra e pronúncia são obrigatórias'})
+        
+        var_dicDicionario = _func_CarregarDicionarioPronuncia()
+        var_dicDicionario[var_strPalavra] = var_strPronuncia
+        _func_SalvarDicionarioPronuncia(var_dicDicionario)
+        
+        return jsonify({'success': True, 'message': 'Entrada adicionada com sucesso!'})
+    except Exception as var_objErro:
+        return jsonify({'success': False, 'error': f'Erro ao adicionar entrada: {str(var_objErro)}'})
+
+@app.route('/dicionario-pronuncia/remove', methods=['POST'])
+def _func_RemoverEntradaDicionarioPronuncia():
+    """Remove uma entrada do dicionário de pronúncia"""
+    try:
+        var_dicDados = request.get_json()
+        var_strPalavra = var_dicDados.get('palavra', '').strip()
+        
+        if not var_strPalavra:
+            return jsonify({'success': False, 'error': 'Palavra é obrigatória'})
+        
+        var_dicDicionario = _func_CarregarDicionarioPronuncia()
+        if var_strPalavra in var_dicDicionario:
+            del var_dicDicionario[var_strPalavra]
+            _func_SalvarDicionarioPronuncia(var_dicDicionario)
+            return jsonify({'success': True, 'message': 'Entrada removida com sucesso!'})
+        else:
+            return jsonify({'success': False, 'error': 'Palavra não encontrada no dicionário'})
+    except Exception as var_objErro:
+        return jsonify({'success': False, 'error': f'Erro ao remover entrada: {str(var_objErro)}'})
+
+@app.route('/dicionario-pronuncia/upload', methods=['POST'])
+def _func_UploadDicionarioPronuncia():
+    """Faz upload de um arquivo JSON com dicionário de pronúncia"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'})
+        
+        var_objArquivo = request.files['file']
+        if var_objArquivo.filename == '':
+            return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'})
+        
+        if not var_objArquivo.filename.endswith('.json'):
+            return jsonify({'success': False, 'error': 'Apenas arquivos JSON são permitidos'})
+        
+        # Ler conteúdo do arquivo
+        var_strConteudo = var_objArquivo.read().decode('utf-8')
+        var_dicDicionario = json.loads(var_strConteudo)
+        
+        # Validar se é um dicionário válido
+        if not isinstance(var_dicDicionario, dict):
+            return jsonify({'success': False, 'error': 'Arquivo deve conter um objeto JSON válido'})
+        
+        # Salvar dicionário
+        _func_SalvarDicionarioPronuncia(var_dicDicionario)
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Dicionário carregado com sucesso! {len(var_dicDicionario)} entradas importadas.'
+        })
+    except json.JSONDecodeError:
+        return jsonify({'success': False, 'error': 'Arquivo JSON inválido'})
+    except Exception as var_objErro:
+        return jsonify({'success': False, 'error': f'Erro ao processar arquivo: {str(var_objErro)}'})
+
+@app.route('/dicionario-pronuncia/download')
+def _func_DownloadDicionarioPronuncia():
+    """Faz download do dicionário de pronúncia como arquivo JSON"""
+    try:
+        var_dicDicionario = _func_CarregarDicionarioPronuncia()
+        
+        # Criar arquivo temporário
+        var_strArquivoTemporario = 'temp_dicionario_pronuncia.json'
+        with open(var_strArquivoTemporario, 'w', encoding='utf-8') as var_objArquivo:
+            json.dump(var_dicDicionario, var_objArquivo, ensure_ascii=False, indent=2)
+        
+        return send_file(var_strArquivoTemporario, as_attachment=True, download_name='dicionario_pronuncia.json')
+    except Exception as var_objErro:
+        return jsonify({'error': f'Erro ao fazer download: {str(var_objErro)}'})
+
+@app.route('/dicionario-pronuncia/clear', methods=['POST'])
+def _func_LimparDicionarioPronuncia():
+    """Limpa o dicionário de pronúncia personalizado"""
+    try:
+        var_dicDicionario = {}
+        _func_SalvarDicionarioPronuncia(var_dicDicionario)
+        return jsonify({'success': True, 'message': 'Dicionário de pronúncia limpo com sucesso!'})
+    except Exception as var_objErro:
+        return jsonify({'success': False, 'error': f'Erro ao limpar dicionário: {str(var_objErro)}'})
+
 @app.route('/download/<file_id>')
 def _func_DownloadEpub(file_id):
-    """Download do EPUB traduzido"""
+    """Download do EPUB traduzido (usando ebooklib para preservar estrutura, imagens, links, estilos, etc)"""
+    import tempfile
+    import os
+    import json
+    from ebooklib import epub
+    from bs4 import BeautifulSoup, NavigableString, Tag
     try:
         var_strCaminhoArquivo = os.path.join(EPUB_PASTA, f'{file_id}_content.json')
         if not os.path.exists(var_strCaminhoArquivo):
             return jsonify({'error': 'Arquivo não encontrado'}), 404
-        
-        # Carregar dados do arquivo
         with open(var_strCaminhoArquivo, 'r', encoding='utf-8') as var_objArquivo:
             var_dicDados = json.load(var_objArquivo)
-        
-        # Verificar se há traduções
         var_boolTemTraducao = any(var_dicCapitulo.get('translated_content') for var_dicCapitulo in var_dicDados.get('chapters', []))
-        
         if not var_boolTemTraducao:
             return jsonify({'error': 'Nenhuma tradução encontrada para download'}), 400
-        
-        # Criar arquivo temporário para download
-        var_strArquivoTemporario = f'temp_{file_id}.txt'
-        with open(var_strArquivoTemporario, 'w', encoding='utf-8') as var_objArquivo:
-            var_objArquivo.write(f"Título: {var_dicDados.get('title', 'Sem título')}\n")
-            var_objArquivo.write("=" * 50 + "\n\n")
-            
-            for var_dicCapitulo in var_dicDados.get('chapters', []):
-                var_objArquivo.write(f"{var_dicCapitulo.get('title', 'Capítulo')}\n")
-                var_objArquivo.write("-" * 30 + "\n")
-                var_objArquivo.write(var_dicCapitulo.get('translated_content', var_dicCapitulo.get('content', '')))
-                var_objArquivo.write("\n\n")
-        
-        return send_file(var_strArquivoTemporario, as_attachment=True, download_name=f"{var_dicDados.get('title', 'epub')}_traduzido.txt")
-    
+        # 1. Encontrar o arquivo EPUB original
+        epub_original = None
+        for nome in os.listdir(PASTA_UPLOADS):
+            if nome.startswith(file_id) and nome.endswith('.epub'):
+                epub_original = os.path.join(PASTA_UPLOADS, nome)
+                break
+        if not epub_original or not os.path.exists(epub_original):
+            return jsonify({'error': 'EPUB original não encontrado'}), 404
+        # 2. Ler EPUB original com ebooklib
+        book = epub.read_epub(epub_original)
+        # 3. Substituir conteúdo dos capítulos pelos textos traduzidos
+        cap_idx = 0
+        for item in book.get_items():
+            if item.get_type() == epub.EpubItem.DOCUMENT:
+                if cap_idx < len(var_dicDados['chapters']):
+                    cap = var_dicDados['chapters'][cap_idx]
+                    if cap.get('translated_content'):
+                        # Substituir apenas o texto visível, preservando tags
+                        soup = BeautifulSoup(item.get_content().decode('utf-8'), 'html.parser')
+                        translated_html = _substituir_html_com_traducao(soup, cap['translated_content'])
+                        item.set_content(translated_html.encode('utf-8'))
+                cap_idx += 1
+        # 4. Gerar EPUB traduzido temporário
+        import tempfile
+        temp_epub = tempfile.NamedTemporaryFile(delete=False, suffix='.epub')
+        temp_epub.close()
+        epub.write_epub(temp_epub.name, book)
+        # 5. Enviar arquivo para download e remover após envio
+        from flask import after_this_request
+        @after_this_request
+        def remove_file(response):
+            try:
+                os.remove(temp_epub.name)
+            except Exception as e:
+                print(f"Erro ao remover arquivo temporário: {e}")
+            return response
+        return send_file(temp_epub.name, as_attachment=True, download_name=f"{var_dicDados.get('title', 'epub')}_traduzido.epub")
     except Exception as var_objErro:
         print(f"Erro no download: {var_objErro}")
         return jsonify({'error': 'Erro interno do servidor'}), 500
+
+def _substituir_html_com_traducao(soup, translated_content):
+    """
+    Substitui apenas o texto visível do HTML (em <p>, <div>, <span>, etc.) pelo texto traduzido,
+    preservando tags, imagens, links, listas, etc. Quebras de linha em <br>.
+    """
+    import re
+    # Tags que contêm texto principal
+    text_tags = ['p', 'span', 'div', 'li', 'td', 'th', 'em', 'strong', 'i', 'b', 'u', 'blockquote', 'figcaption', 'caption', 'label', 'legend']
+    # Divide o texto traduzido em blocos por parágrafo duplo
+    blocks = [b.strip() for b in re.split(r'\n{2,}', translated_content) if b.strip()]
+    tag_list = []
+    for tag_name in text_tags:
+        tag_list.extend(soup.find_all(tag_name))
+    min_len = min(len(tag_list), len(blocks))
+    for i in range(min_len):
+        tag = tag_list[i]
+        tag.clear()
+        for idx, line in enumerate(blocks[i].split('\n')):
+            if idx > 0:
+                tag.append(soup.new_tag('br'))
+            tag.append(line)
+    return str(soup)
+
+@app.route('/livros')
+def _func_PaginaLivros():
+    """Página que lista todos os livros enviados com progresso de tradução"""
+    try:
+        var_listLivros = []
+        
+        # Verificar se a pasta epub_files existe
+        if os.path.exists(EPUB_PASTA):
+            # Listar todos os arquivos de conteúdo
+            for var_strNomeArquivo in os.listdir(EPUB_PASTA):
+                if var_strNomeArquivo.endswith('_content.json'):
+                    var_strIdLivro = var_strNomeArquivo.replace('_content.json', '')
+                    var_strCaminhoArquivo = os.path.join(EPUB_PASTA, var_strNomeArquivo)
+                    
+                    try:
+                        # Carregar dados do livro
+                        with open(var_strCaminhoArquivo, 'r', encoding='utf-8') as var_objArquivo:
+                            var_dicDadosLivro = json.load(var_objArquivo)
+                        
+                        # Calcular progresso de tradução
+                        var_listCapitulos = var_dicDadosLivro.get('chapters', [])
+                        var_intTotalCapitulos = len(var_listCapitulos)
+                        var_intCapitulosTraduzidos = sum(1 for cap in var_listCapitulos if cap.get('translated_content'))
+                        
+                        # Encontrar arquivo original para obter nome do arquivo
+                        var_strNomeArquivoOriginal = None
+                        if os.path.exists(PASTA_UPLOADS):
+                            for var_strArquivoOriginal in os.listdir(PASTA_UPLOADS):
+                                if var_strArquivoOriginal.startswith(var_strIdLivro):
+                                    # Remover o UUID do início do nome do arquivo
+                                    var_strNomeArquivoOriginal = var_strArquivoOriginal
+                                    if '_' in var_strArquivoOriginal:
+                                        # Pular o UUID (36 caracteres + underscore)
+                                        var_strNomeArquivoOriginal = var_strArquivoOriginal[37:]
+                                    break
+                        
+                        # Calcular porcentagem de progresso
+                        var_floatProgresso = 0.0
+                        if var_intTotalCapitulos > 0:
+                            var_floatProgresso = (var_intCapitulosTraduzidos / var_intTotalCapitulos) * 100
+                        
+                        var_listLivros.append({
+                            'id': var_strIdLivro,
+                            'title': var_dicDadosLivro.get('title', 'Sem título'),
+                            'total_chapters': var_intTotalCapitulos,
+                            'translated_chapters': var_intCapitulosTraduzidos,
+                            'progress': round(var_floatProgresso, 1),
+                            'original_filename': var_strNomeArquivoOriginal,
+                            'cover': var_dicDadosLivro.get('cover'),
+                            'upload_date': os.path.getctime(var_strCaminhoArquivo) if os.path.exists(var_strCaminhoArquivo) else None
+                        })
+                        
+                    except Exception as var_objErro:
+                        print(f"Erro ao processar livro {var_strIdLivro}: {var_objErro}")
+                        continue
+        
+        # Ordenar livros por data de upload (mais recentes primeiro)
+        var_listLivros.sort(key=lambda x: x['upload_date'] or 0, reverse=True)
+        
+        return render_template('livros.html', livros=var_listLivros)
+    
+    except Exception as var_objErro:
+        print(f"Erro ao carregar página de livros: {var_objErro}")
+        return render_template('livros.html', livros=[])
+
+@app.route('/livros/clear-all', methods=['POST'])
+def _func_LimparTodosLivros():
+    """Remove todos os livros da biblioteca"""
+    try:
+        var_intLivrosRemovidos = 0
+        var_intArquivosRemovidos = 0
+        
+        # Verificar se a pasta epub_files existe
+        if os.path.exists(EPUB_PASTA):
+            # Listar todos os arquivos de conteúdo
+            for var_strNomeArquivo in os.listdir(EPUB_PASTA):
+                if var_strNomeArquivo.endswith('_content.json'):
+                    var_strIdLivro = var_strNomeArquivo.replace('_content.json', '')
+                    var_strCaminhoArquivo = os.path.join(EPUB_PASTA, var_strNomeArquivo)
+                    
+                    try:
+                        # Remover arquivo de conteúdo
+                        os.remove(var_strCaminhoArquivo)
+                        var_intLivrosRemovidos += 1
+                        
+                        # Remover arquivo original da pasta uploads
+                        if os.path.exists(PASTA_UPLOADS):
+                            for var_strArquivoOriginal in os.listdir(PASTA_UPLOADS):
+                                if var_strArquivoOriginal.startswith(var_strIdLivro):
+                                    var_strCaminhoOriginal = os.path.join(PASTA_UPLOADS, var_strArquivoOriginal)
+                                    os.remove(var_strCaminhoOriginal)
+                                    var_intArquivosRemovidos += 1
+                                    break
+                        
+                    except Exception as var_objErro:
+                        print(f"Erro ao remover livro {var_strIdLivro}: {var_objErro}")
+                        continue
+        
+        return jsonify({
+            'success': True,
+            'message': f'{var_intLivrosRemovidos} livro(s) removido(s) com sucesso!',
+            'books_removed': var_intLivrosRemovidos,
+            'files_removed': var_intArquivosRemovidos
+        })
+        
+    except Exception as var_objErro:
+        print(f"Erro ao limpar livros: {var_objErro}")
+        return jsonify({
+            'success': False,
+            'error': f'Erro ao limpar livros: {str(var_objErro)}'
+        })
+
+@app.route('/tts/<file_id>')
+def tts_player(file_id):
+    """Página dedicada ao player TTS"""
+    try:
+        # Carregar dados do EPUB
+        var_strCaminhoConteudo = os.path.join(EPUB_PASTA, f'{file_id}_content.json')
+        if not os.path.exists(var_strCaminhoConteudo):
+            flash('Arquivo não encontrado', 'error')
+            return redirect(url_for('index'))
+        
+        with open(var_strCaminhoConteudo, 'r', encoding='utf-8') as var_objArquivo:
+            var_dicDadosEpub = json.load(var_objArquivo)
+
+        # Garante que os campos existem e são serializáveis
+        if 'cover' not in var_dicDadosEpub or var_dicDadosEpub['cover'] is None:
+            var_dicDadosEpub['cover'] = ""
+        if 'chapters' not in var_dicDadosEpub or var_dicDadosEpub['chapters'] is None:
+            var_dicDadosEpub['chapters'] = []
+        if 'title' not in var_dicDadosEpub or var_dicDadosEpub['title'] is None:
+            var_dicDadosEpub['title'] = "Sem título"
+
+        return render_template('tts_player.html', 
+                             epub_data=var_dicDadosEpub, 
+                             file_id=file_id)
+    
+    except Exception as var_objErro:
+        print(f"Erro ao carregar player TTS: {var_objErro}")
+        flash('Erro ao carregar player TTS', 'error')
+        return redirect(url_for('index'))
+
+@app.route('/epub-image/<file_id>/<path:image_path>')
+def _func_ServirImagemEpub(file_id, image_path):
+    """Serve imagens dos EPUBs"""
+    try:
+        # Encontrar o arquivo EPUB pelo ID
+        var_strCaminhoEpub = _func_EncontrarEpubPorHash(file_id)
+        if not var_strCaminhoEpub:
+            return jsonify({'error': 'EPUB não encontrado'}), 404
+        
+        # Extrair a imagem do EPUB
+        with zipfile.ZipFile(var_strCaminhoEpub, 'r') as var_objEpub:
+            try:
+                var_objConteudoImagem = var_objEpub.read(image_path)
+                
+                # Determinar o tipo MIME da imagem
+                var_strExtensao = os.path.splitext(image_path)[1].lower()
+                var_dicTiposMIME = {
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.png': 'image/png',
+                    '.gif': 'image/gif',
+                    '.svg': 'image/svg+xml',
+                    '.webp': 'image/webp'
+                }
+                var_strTipoMIME = var_dicTiposMIME.get(var_strExtensao, 'image/jpeg')
+                
+                # Criar resposta com a imagem
+                var_objResposta = make_response(var_objConteudoImagem)
+                var_objResposta.headers['Content-Type'] = var_strTipoMIME
+                var_objResposta.headers['Cache-Control'] = 'public, max-age=31536000'  # Cache por 1 ano
+                return var_objResposta
+                
+            except KeyError:
+                return jsonify({'error': 'Imagem não encontrada no EPUB'}), 404
+            except Exception as var_objErro:
+                return jsonify({'error': f'Erro ao ler imagem: {str(var_objErro)}'}), 500
+                
+    except Exception as var_objErro:
+        return jsonify({'error': f'Erro ao processar imagem: {str(var_objErro)}'}), 500
 
 @app.route('/changelog')
 def _func_PaginaChangelog():

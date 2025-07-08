@@ -1,0 +1,902 @@
+{% extends "base.html" %}
+
+{% block title %}Player TTS - {{ epub_data.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Player TTS - Design Material UI */
+    .tts-player-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #000;
+        overflow: hidden;
+        z-index: 1000;
+    }
+
+    /* Background dinâmico baseado na capa */
+    .tts-background {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        background-size: cover;
+        background-position: center;
+        background-blend-mode: overlay;
+        transition: all 0.5s ease;
+    }
+
+    .tts-background.with-cover {
+        background-image: linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.6) 100%), var(--cover-url);
+    }
+
+    /* Área principal do conteúdo */
+    .tts-content-area {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        z-index: 2;
+    }
+
+    /* Header */
+    .tts-header {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 20px;
+        background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+        z-index: 10;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .tts-header-controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .tts-book-info {
+        color: white;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .tts-book-title {
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .tts-chapter-title {
+        font-size: 16px;
+        opacity: 0.9;
+    }
+
+    .tts-back-button {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        backdrop-filter: blur(10px);
+    }
+
+    .tts-back-button:hover {
+        background: rgba(255,255,255,0.3);
+        transform: translateY(-1px);
+    }
+
+    .tts-chapters-btn {
+        background: rgba(124, 96, 255, 0.8);
+    }
+
+    .tts-chapters-btn:hover {
+        background: rgba(124, 96, 255, 1);
+    }
+
+    /* Área central - Texto sendo lido */
+    .tts-text-area {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 100px 40px 120px;
+        text-align: center;
+    }
+
+    .tts-current-text {
+        color: white;
+        font-size: 28px;
+        line-height: 1.6;
+        max-width: 800px;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+        background: rgba(0,0,0,0.4);
+        padding: 30px;
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.1);
+        transition: all 0.3s ease;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        text-align: center;
+        min-height: 120px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .tts-current-text.highlighted {
+        background: rgba(124, 96, 255, 0.3);
+        border-color: rgba(124, 96, 255, 0.5);
+        transform: scale(1.02);
+        box-shadow: 0 12px 40px rgba(124, 96, 255, 0.3);
+    }
+
+    /* Controles na parte inferior */
+    .tts-controls {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(0deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 70%, transparent 100%);
+        padding: 20px;
+        z-index: 10;
+        backdrop-filter: blur(10px);
+    }
+
+    .tts-controls-content {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    /* Barra de progresso */
+    .tts-progress-container {
+        width: 100%;
+    }
+
+    .tts-progress-bar {
+        width: 100%;
+        height: 6px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 3px;
+        cursor: pointer;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .tts-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #7C60FF 0%, #4729A2 100%);
+        border-radius: 3px;
+        transition: width 0.3s ease;
+        width: 0%;
+        position: relative;
+    }
+
+    .tts-progress-fill::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 12px;
+        height: 12px;
+        background: #7C60FF;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .tts-progress-info {
+        display: flex;
+        justify-content: space-between;
+        color: white;
+        font-size: 12px;
+        margin-top: 8px;
+        opacity: 0.8;
+    }
+
+    /* Controles principais */
+    .tts-main-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+    }
+
+    .tts-control-button {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .tts-control-button:hover {
+        background: rgba(255,255,255,0.3);
+        transform: scale(1.1);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+    }
+
+    .tts-control-button:active {
+        transform: scale(0.95);
+    }
+
+    .tts-control-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .tts-control-button:disabled:hover {
+        background: rgba(255,255,255,0.2);
+        transform: none;
+    }
+
+    .tts-btn-play {
+        width: 60px;
+        height: 60px;
+        font-size: 24px;
+        background: rgba(124, 96, 255, 0.8);
+    }
+
+    .tts-btn-play:hover {
+        background: rgba(124, 96, 255, 1);
+    }
+
+    .tts-btn-play.playing {
+        background: rgba(233, 30, 99, 0.8);
+    }
+
+    .tts-btn-play.playing:hover {
+        background: rgba(233, 30, 99, 1);
+    }
+
+    .tts-btn-prev,
+    .tts-btn-next {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+    }
+
+    .tts-btn-settings {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+        margin-left: auto;
+    }
+
+    /* Controles secundários */
+    .tts-secondary-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.3s ease;
+    }
+
+    .tts-secondary-controls.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .tts-volume-control,
+    .tts-speed-control,
+    .tts-pitch-control,
+    .tts-pause-control {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: white;
+        background: rgba(255,255,255,0.1);
+        padding: 8px 12px;
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+    }
+
+    .tts-volume-slider,
+    .tts-speed-slider,
+    .tts-pitch-slider,
+    .tts-pause-slider {
+        width: 80px;
+        height: 4px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 2px;
+        outline: none;
+        -webkit-appearance: none;
+        cursor: pointer;
+    }
+
+    .tts-volume-slider::-webkit-slider-thumb,
+    .tts-speed-slider::-webkit-slider-thumb,
+    .tts-pitch-slider::-webkit-slider-thumb,
+    .tts-pause-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #7C60FF;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .tts-speed-value,
+    .tts-pitch-value,
+    .tts-pause-value {
+        min-width: 40px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 12px;
+    }
+
+    /* Painel de configurações */
+    .tts-settings-panel {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.95);
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+    }
+
+    .tts-settings-panel.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .tts-settings-content {
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(20px);
+        border-radius: 12px;
+        padding: 30px;
+        max-width: 500px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+        border: 1px solid rgba(255,255,255,0.2);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    .tts-settings-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .tts-settings-title {
+        color: white;
+        font-size: 20px;
+        font-weight: 600;
+    }
+
+    .tts-settings-close {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+
+    .tts-settings-close:hover {
+        background: rgba(255,255,255,0.3);
+        transform: scale(1.1);
+    }
+
+    .tts-setting-group {
+        margin-bottom: 20px;
+    }
+
+    .tts-setting-label {
+        display: block;
+        color: white;
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
+
+    .tts-setting-select,
+    .tts-setting-input {
+        width: 100%;
+        padding: 12px;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 6px;
+        color: white;
+        font-size: 14px;
+        transition: all 0.3s ease;
+    }
+
+    .tts-setting-select:focus,
+    .tts-setting-input:focus {
+        outline: none;
+        border-color: #7C60FF;
+        background: rgba(255,255,255,0.15);
+    }
+
+    .tts-setting-select option {
+        background: #1e1e1e;
+        color: white;
+    }
+
+    .tts-slider-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .tts-slider {
+        flex: 1;
+        height: 6px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 3px;
+        outline: none;
+        -webkit-appearance: none;
+        cursor: pointer;
+    }
+
+    .tts-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #7C60FF;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .tts-slider-value {
+        color: white;
+        font-size: 14px;
+        min-width: 40px;
+        text-align: right;
+        font-weight: 600;
+    }
+
+    .tts-test-button {
+        margin-top: 10px;
+        padding: 10px 20px;
+        background: #7C60FF;
+        border: none;
+        border-radius: 6px;
+        color: white;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .tts-test-button:hover {
+        background: #4729A2;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(124, 96, 255, 0.3);
+    }
+
+    /* Notificações */
+    .mui-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(0,0,0,0.9);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 3000;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .mui-notification--show {
+        transform: translateX(0);
+    }
+
+    .mui-notification--error {
+        background: rgba(244, 67, 54, 0.9);
+    }
+
+    .mui-notification--success {
+        background: rgba(76, 175, 80, 0.9);
+    }
+
+    .mui-notification--info {
+        background: rgba(33, 150, 243, 0.9);
+    }
+
+    /* Responsividade */
+    @media (max-width: 768px) {
+        .tts-current-text {
+            font-size: 20px;
+            padding: 20px;
+        }
+
+        .tts-header {
+            padding: 15px;
+        }
+
+        .tts-book-title {
+            font-size: 18px;
+        }
+
+        .tts-chapter-title {
+            font-size: 14px;
+        }
+
+        .tts-controls {
+            padding: 15px;
+        }
+
+        .tts-main-controls {
+            gap: 15px;
+        }
+
+        .tts-btn-play {
+            width: 50px;
+            height: 50px;
+            font-size: 20px;
+        }
+
+        .tts-btn-prev,
+        .tts-btn-next {
+            width: 40px;
+            height: 40px;
+            font-size: 16px;
+        }
+
+        .tts-settings-content {
+            padding: 20px;
+            margin: 20px;
+        }
+
+        .tts-secondary-controls {
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .tts-volume-control,
+        .tts-speed-control,
+        .tts-pitch-control,
+        .tts-pause-control {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+
+    /* Animações */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .tts-text-area {
+        animation: fadeIn 0.5s ease;
+    }
+
+    /* Scrollbar personalizada */
+    .tts-settings-content::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .tts-settings-content::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.1);
+        border-radius: 3px;
+    }
+
+    .tts-settings-content::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.3);
+        border-radius: 3px;
+    }
+
+    .tts-settings-content::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.5);
+    }
+
+    /* Estilos para a sidebar */
+    #ttsSidebar {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    #ttsSidebarText {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #e0e0e0;
+    }
+
+    #ttsSidebarText p {
+        margin: 0 0 16px 0;
+        padding: 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-left: 3px solid transparent;
+        background: rgba(255,255,255,0.02);
+    }
+
+    #ttsSidebarText p:hover {
+        background: rgba(255,255,255,0.08);
+        border-left-color: rgba(124, 96, 255, 0.5);
+        transform: translateX(2px);
+    }
+
+    #ttsSidebarText p:active {
+        background: rgba(124, 96, 255, 0.15);
+        border-left-color: #7C60FF;
+    }
+
+    /* Highlight da frase sendo lida */
+    .tts-sentence-highlight {
+        background: linear-gradient(90deg, rgba(124, 96, 255, 0.3) 0%, rgba(124, 96, 255, 0.2) 100%);
+        color: #fff;
+        padding: 2px 4px;
+        border-radius: 4px;
+        border: 1px solid rgba(124, 96, 255, 0.5);
+        box-shadow: 0 2px 8px rgba(124, 96, 255, 0.3);
+        animation: tts-highlight-pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes tts-highlight-pulse {
+        0%, 100% {
+            box-shadow: 0 2px 8px rgba(124, 96, 255, 0.3);
+        }
+        50% {
+            box-shadow: 0 4px 16px rgba(124, 96, 255, 0.5);
+        }
+    }
+
+    /* Scrollbar da sidebar */
+    #ttsSidebarText::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    #ttsSidebarText::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.05);
+        border-radius: 4px;
+    }
+
+    #ttsSidebarText::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.2);
+        border-radius: 4px;
+    }
+
+    #ttsSidebarText::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.3);
+    }
+
+    /* Indicador de frase atual */
+    .tts-sentence-indicator {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(124, 96, 255, 0.9);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 12px rgba(124, 96, 255, 0.3);
+        z-index: 15;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tts-player-container">
+    <!-- Background dinâmico -->
+    <div class="tts-background" id="ttsBackground"></div>
+    
+    <!-- Área de conteúdo -->
+    <div class="tts-content-area">
+        <!-- Header -->
+        <div class="tts-header">
+            <div class="tts-book-info">
+                <div class="tts-book-title" id="bookTitle">{{ epub_data.title or 'Livro sem título' }}</div>
+                <div class="tts-chapter-title" id="chapterTitle">Capítulo 1</div>
+            </div>
+            <div class="tts-header-controls">
+                <button class="tts-back-button tts-chapters-btn" id="chaptersBtn" title="Capítulos">
+                    <span class="mui-icon">menu_book</span>
+                    Capítulos
+                </button>
+                <a href="{{ url_for('reader', file_id=file_id) }}" class="tts-back-button">
+                    <span class="mui-icon">arrow_back</span>
+                    Voltar ao Leitor
+                </a>
+            </div>
+        </div>
+        
+        <!-- Área central - Texto sendo lido -->
+        <div class="tts-text-area">
+            <div class="tts-current-text" id="currentText">
+                Clique em Play para começar a leitura...
+            </div>
+        </div>
+        
+        <!-- Controles na parte inferior -->
+        <div class="tts-controls">
+            <div class="tts-controls-content">
+                <!-- Barra de progresso -->
+                <div class="tts-progress-container">
+                    <div class="tts-progress-bar" id="progressBar">
+                        <div class="tts-progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="tts-progress-info">
+                        <span id="currentTime">0:00</span>
+                        <span id="totalTime">0:00</span>
+                    </div>
+                </div>
+                
+                <!-- Controles principais -->
+                <div class="tts-main-controls">
+                    <button class="tts-control-button tts-btn-prev" id="prevBtn" title="Parágrafo anterior">
+                        <span class="mui-icon">skip_previous</span>
+                    </button>
+                    <button class="tts-control-button tts-btn-play" id="playBtn" title="Play/Pause">
+                        <span class="mui-icon">play_arrow</span>
+                    </button>
+                    <button class="tts-control-button tts-btn-next" id="nextBtn" title="Próximo parágrafo">
+                        <span class="mui-icon">skip_next</span>
+                    </button>
+                    <button class="tts-control-button tts-btn-settings" id="settingsBtn" title="Configurações">
+                        <span class="mui-icon">settings</span>
+                    </button>
+                </div>
+                
+                <!-- Controles secundários -->
+                <div class="tts-secondary-controls" id="secondaryControls">
+                    <div class="tts-volume-control">
+                        <span class="mui-icon">volume_up</span>
+                        <input type="range" id="volumeSlider" class="tts-volume-slider" min="0" max="2" step="0.01" value="1">
+                    </div>
+                    <div class="tts-speed-control">
+                        <span class="mui-icon">speed</span>
+                        <input type="range" id="speedSlider" class="tts-speed-slider" min="0.5" max="4" step="0.1" value="1">
+                        <span class="tts-speed-value" id="speedValue">1.0x</span>
+                    </div>
+                    <div class="tts-pitch-control">
+                        <span class="mui-icon">tune</span>
+                        <input type="range" id="pitchSlider" class="tts-pitch-slider" min="0.5" max="3" step="0.1" value="1">
+                        <span class="tts-pitch-value" id="pitchValue">1.0</span>
+                    </div>
+                    <div class="tts-pause-control">
+                        <span class="mui-icon">pause</span>
+                        <input type="range" id="pauseSlider" class="tts-pause-slider" min="0" max="2000" step="50" value="400">
+                        <span class="tts-pause-value" id="pauseValue">400ms</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Painel de configurações -->
+    <div class="tts-settings-panel" id="settingsPanel">
+        <div class="tts-settings-content">
+            <div class="tts-settings-header">
+                <h3 class="tts-settings-title">Configurações de TTS</h3>
+                <button class="tts-settings-close" id="closeSettings">
+                    <span class="mui-icon">close</span>
+                </button>
+            </div>
+            
+            <!-- Seleção de voz -->
+            <div class="tts-setting-group">
+                <label for="voiceSelect" class="tts-setting-label">Voz</label>
+                <select id="voiceSelect" class="tts-setting-select"></select>
+                <button id="testVoiceBtn" class="tts-test-button" title="Testar voz">
+                    <span class="mui-icon">volume_up</span> Testar Voz
+                </button>
+            </div>
+            
+            <!-- Controles de velocidade -->
+            <div class="tts-setting-group">
+                <label for="speedControl" class="tts-setting-label">Velocidade</label>
+                <div class="tts-slider-container">
+                    <input type="range" id="speedControl" min="0.5" max="4" step="0.1" value="1" class="tts-slider">
+                    <span id="speedControlValue" class="tts-slider-value">1.0</span>
+                </div>
+            </div>
+            
+            <!-- Controles de tom -->
+            <div class="tts-setting-group">
+                <label for="pitchControl" class="tts-setting-label">Tom</label>
+                <div class="tts-slider-container">
+                    <input type="range" id="pitchControl" min="0.5" max="3" step="0.1" value="1" class="tts-slider">
+                    <span id="pitchControlValue" class="tts-slider-value">1.0</span>
+                </div>
+            </div>
+            
+            <!-- Controles de volume -->
+            <div class="tts-setting-group">
+                <label for="volumeControl" class="tts-setting-label">Volume</label>
+                <div class="tts-slider-container">
+                    <input type="range" id="volumeControl" min="0" max="2" step="0.01" value="1" class="tts-slider">
+                    <span id="volumeControlValue" class="tts-slider-value">1.0</span>
+                </div>
+            </div>
+            
+            <!-- Controles de pausa -->
+            <div class="tts-setting-group">
+                <label for="pauseControl" class="tts-setting-label">Pausa entre frases (ms)</label>
+                <input type="number" id="pauseControl" class="tts-setting-input" min="0" max="3000" step="50" value="400">
+            </div>
+            
+            <div class="tts-setting-group">
+                <label for="pauseSymbols" class="tts-setting-label">Símbolos para pausa</label>
+                <input type="text" id="pauseSymbols" class="tts-setting-input" value=".?!" placeholder="Ex: .?!">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="{{ url_for('static', filename='js/tts.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tts-player.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dadosCapitulos = {{ epub_data.chapters|tojson|safe }};
+        const fileId = '{{ file_id }}';
+        const capaLivro = {{ epub_data.cover|tojson|safe }};
+        
+        // Aguardar um pouco para garantir que o TTS está carregado
+        setTimeout(() => {
+            // Inicializar TTS primeiro
+            if (typeof inicializarTTS === 'function') {
+                inicializarTTS();
+            }
+            
+            // Inicializar player TTS
+            if (typeof TTSPlayer !== 'undefined') {
+                window.ttsPlayer = new TTSPlayer(dadosCapitulos, fileId, capaLivro);
+            }
+        }, 100);
+    });
+</script>
+{% endblock %} 

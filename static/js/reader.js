@@ -15,6 +15,9 @@ let var_objBotaoTraduzirTudo;
 let var_objBotaoAlternarOriginal;
 let var_objOverlayCarregamento;
 
+// Variável global para exibir o aviso de DOM apenas uma vez
+let domAvisoExibido = false;
+
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
     _func_InicializarElementos();
@@ -23,6 +26,9 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
         _func_ConfigurarBarraDicionarioRapido();
     }, 100);
+    
+    // Configurar modal de imagem
+    _func_ConfigurarModalImagem();
 });
 
 function _func_InicializarElementos() {
@@ -42,7 +48,10 @@ function _func_InicializarElementos() {
 function _func_InicializarLeitor() {
     // Verificar se o DOM está completamente carregado
     if (document.readyState !== 'complete') {
-        console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+        if (!domAvisoExibido) {
+            console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+            domAvisoExibido = true;
+        }
         setTimeout(_func_InicializarLeitor, 100);
         return;
     }
@@ -98,7 +107,10 @@ function _func_InicializarLeitor() {
 function _func_CarregarCapitulo(var_intIndice) {
     // Verificar se o DOM está completamente carregado
     if (document.readyState !== 'complete') {
-        console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+        if (!domAvisoExibido) {
+            console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+            domAvisoExibido = true;
+        }
         setTimeout(() => _func_CarregarCapitulo(var_intIndice), 100);
         return;
     }
@@ -118,10 +130,33 @@ function _func_CarregarCapitulo(var_intIndice) {
     var_intCapituloAtual = var_intIndice;
     const var_dicCapitulo = var_listCapitulos[var_intIndice];
 
-    // Atualizar conteúdo
-    var_objTextoLeitor.innerHTML = `
+    // Preparar conteúdo do capítulo
+    let var_strConteudoHTML = `
         <div class="mui-chapter-content" data-chapter="${var_intIndice}">
             <h2 class="mui-chapter-title">${var_dicCapitulo.title}</h2>
+    `;
+    
+    // Adicionar imagens se existirem
+    if (var_dicCapitulo.images && var_dicCapitulo.images.length > 0) {
+        var_strConteudoHTML += '<div class="mui-chapter-images">';
+        var_dicCapitulo.images.forEach((var_dicImagem, var_intIndiceImagem) => {
+            const var_strUrlImagem = `/epub-image/${window.fileId}/${encodeURIComponent(var_dicImagem.src)}`;
+            var_strConteudoHTML += `
+                <div class="mui-chapter-image-container">
+                    <img src="${var_strUrlImagem}" 
+                         alt="${var_dicImagem.alt || 'Imagem do capítulo'}" 
+                         title="${var_dicImagem.title || ''}"
+                         class="mui-chapter-image"
+                         loading="lazy"
+                         onerror="this.style.display='none'; console.error('Erro ao carregar imagem:', this.src);">
+                </div>
+            `;
+        });
+        var_strConteudoHTML += '</div>';
+    }
+    
+    // Adicionar texto do capítulo
+    var_strConteudoHTML += `
             <div class="mui-chapter-text">
                 ${var_boolMostrandoOriginal && var_dicCapitulo.original_content 
                     ? var_dicCapitulo.original_content.replace(/\n/g, '<br>')
@@ -129,6 +164,8 @@ function _func_CarregarCapitulo(var_intIndice) {
             </div>
         </div>
     `;
+    
+    var_objTextoLeitor.innerHTML = var_strConteudoHTML;
 
     // Atualizar seleção na lista
     const var_listItensCapitulo = var_objListaCapitulos.querySelectorAll('.mui-chapter-item');
@@ -137,6 +174,13 @@ function _func_CarregarCapitulo(var_intIndice) {
             var_objItem.classList.add('mui-chapter-item--active');
         } else {
             var_objItem.classList.remove('mui-chapter-item--active');
+        }
+        
+        // Atualizar título do capítulo na lista se foi traduzido
+        const var_dicCapituloItem = var_listCapitulos[var_intIndiceItem];
+        const var_objTituloItem = var_objItem.querySelector('.mui-chapter-item__title');
+        if (var_objTituloItem && var_dicCapituloItem) {
+            var_objTituloItem.textContent = var_dicCapituloItem.title;
         }
     });
 
@@ -159,12 +203,17 @@ function _func_CarregarCapitulo(var_intIndice) {
     } else {
         var_objBotaoAlternarOriginal.style.display = 'none';
     }
+
+    // Player TTS removido - agora em página separada
 }
 
 function _func_AtualizarInformacoesCapitulo() {
     // Verificar se o DOM está completamente carregado
     if (document.readyState !== 'complete') {
-        console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+        if (!domAvisoExibido) {
+            console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+            domAvisoExibido = true;
+        }
         setTimeout(_func_AtualizarInformacoesCapitulo, 100);
         return;
     }
@@ -183,6 +232,7 @@ function _func_AlternarVisualizacaoOriginal() {
     
     const var_dicCapitulo = var_listCapitulos[var_intCapituloAtual];
     const var_objTextoCapitulo = var_objTextoLeitor.querySelector('.mui-chapter-text');
+    const var_objTituloCapitulo = var_objTextoLeitor.querySelector('.mui-chapter-title');
     
     if (var_objTextoCapitulo) {
         if (var_boolMostrandoOriginal) {
@@ -205,12 +255,36 @@ function _func_AlternarVisualizacaoOriginal() {
             var_objBotaoAlternarOriginal.innerHTML = '<span class="mui-icon mui-icon--visibility"></span> Ver original';
         }
     }
+    
+    // Alternar também o título do capítulo
+    if (var_objTituloCapitulo) {
+        if (var_boolMostrandoOriginal) {
+            // Mostrar título original
+            let var_strTituloOriginal = var_dicCapitulo.original_title;
+            
+            // Se não tem original_title, usar o title atual
+            if (!var_strTituloOriginal) {
+                var_strTituloOriginal = var_dicCapitulo.title;
+                // Definir original_title para uso futuro
+                var_dicCapitulo.original_title = var_strTituloOriginal;
+            }
+            
+            var_objTituloCapitulo.textContent = var_strTituloOriginal;
+        } else {
+            // Mostrar título traduzido
+            let var_strTituloTraduzido = var_dicCapitulo.translated_title || var_dicCapitulo.title;
+            var_objTituloCapitulo.textContent = var_strTituloTraduzido;
+        }
+    }
 }
 
 function _func_TraduzirCapituloAtual() {
     // Verificar se o DOM está completamente carregado
     if (document.readyState !== 'complete') {
-        console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+        if (!domAvisoExibido) {
+            console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+            domAvisoExibido = true;
+        }
         setTimeout(_func_TraduzirCapituloAtual, 100);
         return;
     }
@@ -262,6 +336,9 @@ function _func_TraduzirCapituloAtual() {
             // Atualizar a visualização do capítulo atual
             _func_CarregarCapitulo(var_intCapituloAtual);
             
+            // Atualizar título do capítulo na lista lateral
+            _func_AtualizarTituloCapituloNaLista(var_intCapituloAtual);
+            
             _func_MostrarNotificacao('Capítulo traduzido com sucesso!', 'success');
         } else {
             throw new Error(var_dicDados.error || 'Erro desconhecido');
@@ -280,7 +357,10 @@ function _func_TraduzirCapituloAtual() {
 function _func_TraduzirTodosCapitulos() {
     // Verificar se o DOM está completamente carregado
     if (document.readyState !== 'complete') {
-        console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+        if (!domAvisoExibido) {
+            console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+            domAvisoExibido = true;
+        }
         setTimeout(_func_TraduzirTodosCapitulos, 100);
         return;
     }
@@ -448,6 +528,9 @@ function _func_TraduzirTodosCapitulos() {
                         _func_CarregarCapitulo(var_intCapituloAtual);
                     }
                     
+                    // Atualizar título do capítulo na lista lateral
+                    _func_AtualizarTituloCapituloNaLista(var_intIndice);
+                    
                     // Marcar como concluído
                     var_intCapitulosCompletados++;
                     var_intCapitulosEmAndamento--;
@@ -556,7 +639,10 @@ function _func_TraduzirTodosCapitulos() {
 function _func_AtualizarConteudoAposTraducao() {
     // Verificar se o DOM está completamente carregado
     if (document.readyState !== 'complete') {
-        console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+        if (!domAvisoExibido) {
+            console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+            domAvisoExibido = true;
+        }
         setTimeout(_func_AtualizarConteudoAposTraducao, 100);
         return;
     }
@@ -569,12 +655,18 @@ function _func_AtualizarConteudoAposTraducao() {
     // Atualizar o capítulo atual se necessário
     _func_CarregarCapitulo(var_intCapituloAtual);
     
-    // Atualizar a lista de capítulos para mostrar indicadores de tradução
+    // Atualizar a lista de capítulos para mostrar indicadores de tradução e títulos traduzidos
     const var_listItensCapitulo = var_objListaCapitulos.querySelectorAll('.mui-chapter-item');
     var_listItensCapitulo.forEach((var_objItem, var_intIndiceItem) => {
         const var_dicCapitulo = var_listCapitulos[var_intIndiceItem];
         if (var_dicCapitulo.translated_content) {
             var_objItem.classList.add('mui-chapter-item--translated');
+        }
+        
+        // Atualizar título do capítulo se foi traduzido
+        const var_objTituloItem = var_objItem.querySelector('.mui-chapter-item__title');
+        if (var_objTituloItem && var_dicCapitulo) {
+            var_objTituloItem.textContent = var_dicCapitulo.title;
         }
     });
     
@@ -582,10 +674,30 @@ function _func_AtualizarConteudoAposTraducao() {
     _func_MostrarNotificacao('Tradução concluída! Todos os capítulos foram traduzidos.', 'success');
 }
 
+function _func_AtualizarTituloCapituloNaLista(var_intIndiceCapitulo) {
+    if (!var_objListaCapitulos || var_intIndiceCapitulo < 0 || var_intIndiceCapitulo >= var_listCapitulos.length) {
+        return;
+    }
+    
+    const var_listItensCapitulo = var_objListaCapitulos.querySelectorAll('.mui-chapter-item');
+    const var_objItemCapitulo = var_listItensCapitulo[var_intIndiceCapitulo];
+    const var_dicCapitulo = var_listCapitulos[var_intIndiceCapitulo];
+    
+    if (var_objItemCapitulo && var_dicCapitulo) {
+        const var_objTituloItem = var_objItemCapitulo.querySelector('.mui-chapter-item__title');
+        if (var_objTituloItem) {
+            var_objTituloItem.textContent = var_dicCapitulo.title;
+        }
+    }
+}
+
 function _func_MostrarNotificacao(var_strMensagem, var_strTipo) {
     // Verificar se o DOM está completamente carregado
     if (document.readyState !== 'complete') {
-        console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+        if (!domAvisoExibido) {
+            console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+            domAvisoExibido = true;
+        }
         setTimeout(() => _func_MostrarNotificacao(var_strMensagem, var_strTipo), 100);
         return;
     }
@@ -618,7 +730,10 @@ function _func_MostrarNotificacao(var_strMensagem, var_strTipo) {
 function _func_ConfigurarBarraDicionarioRapido() {
     // Verificar se o DOM está completamente carregado
     if (document.readyState !== 'complete') {
-        console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+        if (!domAvisoExibido) {
+            console.warn('DOM não está completamente carregado, tentando novamente em 100ms');
+            domAvisoExibido = true;
+        }
         setTimeout(_func_ConfigurarBarraDicionarioRapido, 100);
         return;
     }
@@ -698,4 +813,69 @@ function _func_ConfigurarBarraDicionarioRapido() {
 function _func_InicializarDadosCapitulos(dadosCapitulos, fileId) {
     var_listCapitulos = dadosCapitulos;
     window.fileId = fileId;
+    window.epubData = dadosCapitulos; // Armazenar dados completos do EPUB
+    var_intCapituloAtual = 0;
+    
+    // Carregar primeiro capítulo
+    if (var_listCapitulos.length > 0) {
+        _func_CarregarCapitulo(0);
+    }
+    
+    // Player TTS removido - agora em página separada
+}
+
+// Funções do player TTS removidas - agora em página separada
+
+// ===== FUNÇÕES PARA MODAL DE IMAGEM =====
+
+// Configurar modal de imagem
+function _func_ConfigurarModalImagem() {
+    const var_objImageModal = document.getElementById('imageModal');
+    const var_objCloseImageModal = document.getElementById('closeImageModal');
+    
+    if (var_objCloseImageModal) {
+        var_objCloseImageModal.addEventListener('click', _func_FecharModalImagem);
+    }
+    
+    if (var_objImageModal) {
+        var_objImageModal.addEventListener('click', function(e) {
+            if (e.target === var_objImageModal) {
+                _func_FecharModalImagem();
+            }
+        });
+    }
+    
+    // Adicionar evento de clique nas imagens dos capítulos
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('mui-chapter-image')) {
+            _func_AbrirModalImagem(e.target.src, e.target.alt);
+        }
+    });
+}
+
+// Abrir modal de imagem
+function _func_AbrirModalImagem(src, alt) {
+    const var_objImageModal = document.getElementById('imageModal');
+    const var_objModalImage = document.getElementById('modalImage');
+    
+    if (var_objImageModal && var_objModalImage) {
+        var_objModalImage.src = src;
+        var_objModalImage.alt = alt || 'Imagem ampliada';
+        var_objImageModal.classList.add('mui-image-modal--open');
+        
+        // Prevenir scroll do body
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+// Fechar modal de imagem
+function _func_FecharModalImagem() {
+    const var_objImageModal = document.getElementById('imageModal');
+    
+    if (var_objImageModal) {
+        var_objImageModal.classList.remove('mui-image-modal--open');
+        
+        // Restaurar scroll do body
+        document.body.style.overflow = '';
+    }
 }
